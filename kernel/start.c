@@ -1,5 +1,8 @@
 #include "debugger.h"
 #include "cpu.h"
+#include "display.h"
+#include "../shared/debug.h" 
+#include "test.c"
 
 int fact(int n)
 {
@@ -12,15 +15,16 @@ int fact(int n)
 
 void kernel_start(void)
 {
-	int i;
-	// call_debugger(); useless with qemu -s -S
 
-	i = 10;
+	clear_screen(COLOR_WHITE, COLOR_BLACK);
+	printf("HELP ME!!");
 
-	i = fact(i);
+	test_run(1);
 
-	while(1)
-	  hlt();
 
+	while (1) {
+		hlt();
+	}
 	return;
+	
 }
