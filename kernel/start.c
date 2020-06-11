@@ -1,8 +1,9 @@
 #include "debugger.h"
 #include "cpu.h"
 #include "display.h"
-#include "../shared/debug.h" 
-#include "test.c"
+#include "process.h"
+#include "../shared/debug.h"
+
 
 int fact(int n)
 {
@@ -12,16 +13,18 @@ int fact(int n)
 	return n * fact(n-1);
 }
 
+int print_proc(){
+	printf("Hello world !\n");
+	printf("Hello world !\n");
+	return 0;
+}
+
 
 void kernel_start(void)
 {
 
 	clear_screen(COLOR_WHITE, COLOR_BLACK);
-	printf("HELP ME!!");
-
-	test_run(1);
-
-
+	start(print_proc, 4096 ,1,"print_proc",NULL);
 	while (1) {
 		hlt();
 	}

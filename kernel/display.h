@@ -1,9 +1,9 @@
-#ifndef _DISPLAY_H_
-#define _DISPLAY_H_
+#ifndef DISPLAY_H
+#define DISPLAY_H
     #define MAX_C 80
     #define MAX_L 25
 
-    #ifndef _DISPLAY_ASM_
+    #ifndef DISPLAY_ASM
         #include "../shared/stdint.h"
         #define DISPLAY_ADR 0xB8000
     
