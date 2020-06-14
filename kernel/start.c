@@ -3,31 +3,36 @@
 #include "display.h"
 #include "process.h"
 #include "../shared/debug.h"
+#include "mem.h"
 
 
-int fact(int n)
-{
-	if (n < 2)
-		return 1;
-
-	return n * fact(n-1);
+int test(void * arg){
+	if((int) arg == 5){
+		printf("BITCH YOU DID THAT\n");
+	}else{
+		printf("Je veux rejoindre papa Johnny\n");
+	}
+	return 5;
 }
 
-int print_proc(){
-	printf("Hello world !\n");
-	printf("Hello world !\n");
+int help(){
+	printf("I'm dying\n");
+	int pid = start(test,4096,130,"test",(void *) 5);
+	printf("PID : %d \n",pid);
+
+    while(1)
+	  hlt();
 	return 0;
 }
+
 
 
 void kernel_start(void)
 {
 
 	clear_screen(COLOR_WHITE, COLOR_BLACK);
-	start(print_proc, 4096 ,1,"print_proc",NULL);
-	while (1) {
-		hlt();
-	}
-	return;
+	char * test = mem_alloc(8);
+	printf("%s", test);
+	sti();
 	
 }

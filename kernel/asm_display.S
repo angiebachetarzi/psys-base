@@ -1,4 +1,4 @@
-#define _DISPLAY_ASM_
+#define DISPLAY_ASM
 #include "display.h"
 
 .text

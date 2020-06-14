@@ -38,15 +38,15 @@ CFLAGS := -m32 \
 		  -g \
 		  -pipe \
 		  -nostdinc \
+		  -fno-pie -no-pie \
 		  -nostdlib \
 		  -fno-stack-protector \
-		  -fno-pie -no-pie \
 		  $(DEFS)
 ASFLAGS := -m32 \
 		   -DASSEMBLER \
 		   $(DEFS)
 ARFLAGS := rcs
-LDFLAGS := -g -melf_i386 -no-pie
+LDFLAGS := -g -melf_i386 -no-pie -g
 
 # Import facilities
 include build/utils.mk

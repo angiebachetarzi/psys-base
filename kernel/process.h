@@ -5,6 +5,7 @@
     #include "context.h"
     
 
+    #define STATE_FREE 0x00
     #define STATE_READY 0x01
     #define STATE_ACTIVE 0x02
     //blocked on semaphore
@@ -20,9 +21,6 @@
     #define MAX_PRIO 256
     #define N_PROC 30
 
-
-    #define ERROR_PRIO -1
-
     //structure of process
     //pid: number of process
     //name: name of process
@@ -33,8 +31,9 @@
     //pt_func: address of program of process
     //priority: priority of process
     //arg: argument of pt_func
-    //ppid: number of parent process
-    typedef struct {
+    //parent: parent of process
+    //scheduling: head for scheduling
+    typedef struct _process {
         uint32_t pid;
         const char * name;
         uint8_t state;
@@ -44,22 +43,30 @@
         int (*pt_func)(void *);
         uint32_t priority;
         void * arg;
-        uint32_t ppid;
+        struct _process * parent;
         link scheduling;
-        link childhead;
-        link child;
     } process;
 
-    //process table
-    typedef struct {
-        uint32_t current_pid;
+    //structure of process table
+    //current_process: current process
+    //table_process: static list of processes
+    //free_process: head of list of free processes
+    //ready_process: head of list of ready processes
+    struct procTable{
+        process * current_process;
         process table_process[N_PROC];
-        link free;
-        link active;
-        link zombie;
+        link free_process;
+        link ready_process;
         context ctx_kernel;
-    } procTable;
-    extern procTable proc_table;
+    } ;
+    typedef struct procTable proc_table;
+
+    //start first process
+    //pt_func: address of program of process
+    //ssize: used size for process in stack
+    //name: name of process to start
+    //NB: first process has default prio
+    int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name);
 
     //start a new process
     //pt_func: address of program of process
