@@ -3,6 +3,7 @@
 
     #include "queue.h"
     #include "context.h"
+    #include "stdint.h"
     
 
     #define STATE_FREE 0x00

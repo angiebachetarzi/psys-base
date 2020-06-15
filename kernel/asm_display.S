@@ -12,7 +12,6 @@ set_cursor:
     addw 12(%ebp),%ax
     movw %ax, %cx
 
-    // port de commande
     movw $0x3D4, %dx
     movb $0x0f , %al
     outb %al, %dx

@@ -6,22 +6,19 @@
 #include "mem.h"
 
 
-int test(void * arg){
-	if((int) arg == 5){
-		printf("BITCH YOU DID THAT\n");
+int test2(void * arg){
+	if((int) arg == 6){
+		printf("Watashi wa test2 desu\n");
 	}else{
-		printf("Je veux rejoindre papa Johnny\n");
+		printf("Moo ii yo\n");
 	}
-	return 5;
+	return 666;
 }
 
-int help(){
-	printf("I'm dying\n");
-	int pid = start(test,4096,130,"test",(void *) 5);
-	printf("PID : %d \n",pid);
-
-    while(1)
-	  hlt();
+int test1(){
+	printf("Watashi wa number one desu\n");
+	int pid = start(test2,4096,130,"test",(void *) 6);
+	printf("Watashi no PID wa %d \n",pid);
 	return 0;
 }
 
@@ -31,8 +28,11 @@ void kernel_start(void)
 {
 
 	clear_screen(COLOR_WHITE, COLOR_BLACK);
-	char * test = mem_alloc(8);
-	printf("%s", test);
-	sti();
-	
+	first_process(test1, 4096, "help");
+
+	while(1) {
+		hlt();
+	}
+
+	return;
 }

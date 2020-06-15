@@ -1,6 +1,9 @@
 #include "process.h"
-#include "../shared/queue.h"
+#include "queue.h"
 #include "mem.h"
+#include "debug.h"
+
+extern void exit_proc();
 
 proc_table process_table;
 
@@ -23,20 +26,24 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
     new_proc -> context.esp = (uint32_t) &new_proc -> stack[size - 3];
 
     new_proc -> stack[size - 1] = (uint32_t) arg;
+    new_proc -> stack[size - 2] = (uint32_t) exit_proc;
     new_proc -> stack[size - 3] = (uint32_t) pt_func;
 
     //if the parent process has a lesser priority than it's child
     if ((new_proc -> parent) -> priority < new_proc -> priority) {
-
         new_proc -> state = STATE_ACTIVE;
 
         //change state of parent to ready
         (new_proc -> parent) -> state = STATE_READY;
         //add the parent to the list of ready processes
         queue_add(new_proc -> parent,&process_table.ready_process,process,scheduling,priority);
+        
+        //current process becomes new process
+        process_table.current_process = new_proc;
 
         //switch context from parent to child
-        context_switch(&(new_proc -> parent) -> context ,
+        process * old = new_proc -> parent;
+        context_switch(&old -> context ,
                         &new_proc -> context);
 
     } else {
@@ -45,7 +52,14 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
         queue_add(new_proc,&process_table.ready_process,process,scheduling,priority);
 
     }
+
     return new_proc -> pid;
+}
+
+void exit(int retval) {
+    //temp because start wont work without it
+    printf("%d", retval);
+    while(1);
 }
 
 int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) {

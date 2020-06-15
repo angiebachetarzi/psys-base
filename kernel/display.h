@@ -4,10 +4,9 @@
     #define MAX_L 25
 
     #ifndef DISPLAY_ASM
-        #include "../shared/stdint.h"
+        #include "stdint.h"
         #define DISPLAY_ADR 0xB8000
     
-        #define DISPLAY_ADR 0xB8000
         #define DISPLAY_TAB_NB 4
         #define BUFFER_SIZE MAX_C * MAX_L
 
