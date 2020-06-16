@@ -113,3 +113,11 @@ void console_putbytes(char *chaine, int32_t taille){
         write_car(chaine[i]);
     }
 }
+
+void display_timer(char *chaine, int32_t taille) {
+  set_cursor(0,MAX_C - taille);
+  console_putbytes(chaine, taille);
+  set_cursor(1,0);
+}
+
+

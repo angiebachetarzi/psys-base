@@ -18,6 +18,9 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
     new_proc -> priority = prio;
     new_proc -> arg = arg;
     new_proc -> parent = process_table.current_process;
+    INIT_LIST_HEAD(&new_proc -> head_children);
+    //add new process to children list of parent
+    queue_add(new_proc, &(new_proc -> parent) -> head_children, process, nodes_children, priority);
 
     //new process list for the child
     new_proc -> stack = mem_alloc(ssize);
@@ -57,8 +60,81 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
 }
 
 void exit(int retval) {
-    //temp because start wont work without it
-    printf("%d", retval);
+    //assign return value to current process
+    (process_table.current_process) -> return_value = retval;
+
+    //if the parent had to wait for the child (child_wait_block state)
+    if (((process_table.current_process) -> parent) -> state == STATE_CHILD_WAIT_BLOCK) {
+    
+        //if return value of wait_pid is < 0 for the parent
+        if (((process_table.current_process) -> parent) -> wait_pid_val < 0) {
+
+            //update waitpid value of the parent with pid of child
+            ((process_table.current_process) -> parent) -> wait_pid_val = (process_table.current_process) -> pid;
+
+        }
+
+        //change state of parent to ready
+        ((process_table.current_process) -> parent) -> state = STATE_READY;
+        //add parent to the ready queue
+        queue_add((process_table.current_process) -> parent, &process_table.ready_process, process, scheduling, priority);
+    }
+
+    //taking care of children
+    process * tmp;
+    queue_for_each(tmp, &(process_table.current_process) -> head_children, process, nodes_children) {
+        //if the process is in zombie mode, add it to the free process list
+        //else just wait for its child to finish
+        if (tmp -> state == STATE_ZOMBIE) {
+
+            //set state of process to free
+            tmp -> state = STATE_FREE;
+            //add it to the free prcess list
+            queue_add(tmp, &process_table.free_process, process, scheduling, priority);
+
+        } else {
+
+            waitpid(tmp -> pid, NULL);
+
+        }
+    }
+
+    //if the parent of the current process is the first ever process
+    if (((process_table.current_process) -> parent) -> pid == 1) {
+
+        //get next free process
+        process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
+
+        //update state of next process
+        next_proc -> state = STATE_ACTIVE;
+        //update state of current
+        (process_table.current_process) -> state = STATE_ZOMBIE;
+        //update current process
+        process_table.current_process = next_proc;
+
+        //switch context to next process
+        process * old = next_proc -> parent;
+        context_switch(&old -> context ,
+                        &next_proc -> context);
+
+    } else {
+        //state free
+        //get next free process
+        process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
+
+        //update state of next process
+        next_proc -> state = STATE_ACTIVE;
+        //update current process
+        process_table.current_process = next_proc;
+        //add parent to free process list
+        queue_add(next_proc -> parent, &process_table.free_process, process, scheduling, priority);
+
+        //switch context to next proc
+        process * old = next_proc -> parent;
+        context_switch(&old -> context ,
+                        &next_proc -> context);
+
+    }
     while(1);
 }
 
@@ -84,9 +160,10 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
     first -> name = name;
     first -> size = ssize;
     first -> pt_func = pt_func;
-    first -> priority = 128;
+    first -> priority = DEFAULT_PRIORITY;
     first -> arg = NULL;
     first -> parent = first;
+    INIT_LIST_HEAD(&first -> head_children);
 
     //init stack of first process
     first -> stack = mem_alloc(ssize);
@@ -107,4 +184,10 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
     context_switch(&random_ctx, &first -> context);
 
     return 0;
+}
+
+int waitpid(int pid, int *retvalp) {
+    //temp in order for exit to work
+    *retvalp = pid;
+    return pid;
 }

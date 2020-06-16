@@ -25,6 +25,13 @@
         void console_putbytes(char *str, int32_t size);
 
         /*
+        * display_timer: display the timer up and to the left
+        * string: the actual timer
+        * size size of string
+        */
+        void display_timer(char * string, int32_t size);
+
+        /*
         * set_cursor : change position of cursor on console
         * @param l: new line
         * @param c: new column
