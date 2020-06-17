@@ -23,6 +23,12 @@
     #define N_PROC 30
     #define DEFAULT_PRIORITY 128
 
+
+    //errors
+    #define ERROR_PRIO -1
+    #define ERROR_PID -2
+    #define ERROR_CHILD -3
+
     /*
     * structure of process
     * pid: number of process
@@ -50,7 +56,7 @@
         uint32_t * stack;
         uint32_t size;
         int (*pt_func)(void *);
-        uint32_t priority;
+        int32_t priority;
         void * arg;
         struct _process * parent;
         link scheduling;
@@ -72,7 +78,6 @@
         process table_process[N_PROC];
         link free_process;
         link ready_process;
-        context ctx_kernel;
     } ;
     typedef struct procTable proc_table;
 

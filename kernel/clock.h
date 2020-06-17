@@ -16,4 +16,6 @@ void init_traitant_IT32(void (*traitant) (void));
 
 void demasquage_IRQ();
 
+void traitant_IT_32(void);
+
 #endif

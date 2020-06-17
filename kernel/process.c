@@ -7,6 +7,39 @@ extern void exit_proc();
 
 proc_table process_table;
 
+void next_process(uint8_t curr_state) {
+
+    process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
+
+    process * curr = process_table.current_process;
+    next_proc -> state = STATE_ACTIVE;
+    process_table.current_process = next_proc;
+
+    if (curr_state == STATE_READY) {
+
+        curr -> state = STATE_READY;
+        queue_add(curr, &process_table.ready_process, process, scheduling, priority);
+
+    } else {
+        if (curr_state == STATE_FREE) {
+
+        curr -> state = STATE_FREE;
+        queue_add(curr, &process_table.free_process, process, scheduling, priority);
+
+        }
+        else {
+
+            curr -> state = curr_state;
+
+        }
+    }
+
+    //switch context to next proc
+    context_switch(&curr -> context ,
+                        &next_proc -> context);
+
+}
+
 
 int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name, void *arg) {
 
@@ -33,20 +66,22 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
     new_proc -> stack[size - 3] = (uint32_t) pt_func;
 
     //if the parent process has a lesser priority than it's child
-    if ((new_proc -> parent) -> priority < new_proc -> priority) {
+    if (process_table.current_process -> priority < new_proc -> priority) {
+
+        process * curr = process_table.current_process;
+
         new_proc -> state = STATE_ACTIVE;
 
-        //change state of parent to ready
-        (new_proc -> parent) -> state = STATE_READY;
-        //add the parent to the list of ready processes
-        queue_add(new_proc -> parent,&process_table.ready_process,process,scheduling,priority);
-        
         //current process becomes new process
         process_table.current_process = new_proc;
 
+        //change state of parent to ready
+        curr -> state = STATE_READY;
+        //add the parent to the list of ready processes
+        queue_add(curr,&process_table.ready_process,process,scheduling,priority);
+
         //switch context from parent to child
-        process * old = new_proc -> parent;
-        context_switch(&old -> context ,
+        context_switch(&curr -> context ,
                         &new_proc -> context);
 
     } else {
@@ -99,42 +134,8 @@ void exit(int retval) {
         }
     }
 
-    //if the parent of the current process is the first ever process
-    if (((process_table.current_process) -> parent) -> pid == 1) {
+    next_process(STATE_ZOMBIE);
 
-        //get next free process
-        process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
-
-        //update state of next process
-        next_proc -> state = STATE_ACTIVE;
-        //update state of current
-        (process_table.current_process) -> state = STATE_ZOMBIE;
-        //update current process
-        process_table.current_process = next_proc;
-
-        //switch context to next process
-        process * old = next_proc -> parent;
-        context_switch(&old -> context ,
-                        &next_proc -> context);
-
-    } else {
-        //state free
-        //get next free process
-        process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
-
-        //update state of next process
-        next_proc -> state = STATE_ACTIVE;
-        //update current process
-        process_table.current_process = next_proc;
-        //add parent to free process list
-        queue_add(next_proc -> parent, &process_table.free_process, process, scheduling, priority);
-
-        //switch context to next proc
-        process * old = next_proc -> parent;
-        context_switch(&old -> context ,
-                        &next_proc -> context);
-
-    }
     while(1);
 }
 
@@ -186,8 +187,40 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
     return 0;
 }
 
+int getpid() {
+    return (process_table.current_process) -> pid;
+}
+
 int waitpid(int pid, int *retvalp) {
-    //temp in order for exit to work
-    *retvalp = pid;
-    return pid;
+
+    if (pid < 1) {
+        return ERROR_PID;
+    }
+
+    if (queue_empty(&(process_table.current_process) -> head_children)
+        || (process_table.table_process[pid - 1]).parent -> pid != (uint32_t) getpid()) {
+        return ERROR_CHILD;
+    }
+
+    //if father is zombie and pid is not of the first process
+    if (pid > 0 && (process_table.table_process[pid - 1]).state == STATE_ZOMBIE) {
+        //check that return value is not null
+        if (retvalp != NULL) {
+            //update return value with the one of the father
+            *retvalp = (process_table.table_process[pid - 1]).return_value;
+        }
+        return pid;
+    }
+    
+    //update waitpid value
+    (process_table.current_process) -> wait_pid_val = pid;
+
+    //move on to next process
+    next_process(STATE_CHILD_WAIT_BLOCK);
+
+    if(retvalp != NULL){
+        *retvalp = (process_table.table_process[pid - 1]).return_value;
+    }
+
+    return (process_table.current_process) -> wait_pid_val;
 }
