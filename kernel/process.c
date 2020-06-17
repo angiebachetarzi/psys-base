@@ -7,36 +7,53 @@ extern void exit_proc();
 
 proc_table process_table;
 
-void next_process(uint8_t curr_state) {
-
-    process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
+/*
+* Switch to next process
+* next: the next process
+* state: state of the current process
+*/
+void switch_proc(process * next, uint8_t state) {
 
     process * curr = process_table.current_process;
-    next_proc -> state = STATE_ACTIVE;
-    process_table.current_process = next_proc;
+    //next process becomes active
+    next -> state = STATE_ACTIVE;
+    //update current process
+    process_table.current_process = next;
 
-    if (curr_state == STATE_READY) {
+    if (state == STATE_READY) {
 
+        //add old process to the ready list
         curr -> state = STATE_READY;
         queue_add(curr, &process_table.ready_process, process, scheduling, priority);
 
     } else {
-        if (curr_state == STATE_FREE) {
+        if (state == STATE_FREE) {
 
+        //add old process to free list
         curr -> state = STATE_FREE;
         queue_add(curr, &process_table.free_process, process, scheduling, priority);
 
         }
         else {
 
-            curr -> state = curr_state;
+            curr -> state = state;
 
         }
     }
 
     //switch context to next proc
     context_switch(&curr -> context ,
-                        &next_proc -> context);
+                        &next -> context);
+}
+
+/*
+* Get next process in ready list and change to that process
+* curr_state: state of current process
+*/
+void next_process(uint8_t curr_state) {
+
+    process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
+    switch_proc(next_proc, curr_state);
 
 }
 
@@ -68,21 +85,7 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
     //if the parent process has a lesser priority than it's child
     if (process_table.current_process -> priority < new_proc -> priority) {
 
-        process * curr = process_table.current_process;
-
-        new_proc -> state = STATE_ACTIVE;
-
-        //current process becomes new process
-        process_table.current_process = new_proc;
-
-        //change state of parent to ready
-        curr -> state = STATE_READY;
-        //add the parent to the list of ready processes
-        queue_add(curr,&process_table.ready_process,process,scheduling,priority);
-
-        //switch context from parent to child
-        context_switch(&curr -> context ,
-                        &new_proc -> context);
+        switch_proc(new_proc, STATE_READY);
 
     } else {
 
@@ -189,6 +192,20 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
 
 int getpid() {
     return (process_table.current_process) -> pid;
+}
+
+int getprio(int pid) {
+    return (process_table.table_process[pid - 1]).priority;
+}
+
+int chprio(int pid, int newprio) {
+    //get old prio
+    int32_t tmp_prio = (process_table.table_process[pid - 1]).priority;
+    //update prio
+    (process_table.table_process[pid - 1]).priority = newprio;
+
+    return tmp_prio;
+
 }
 
 int waitpid(int pid, int *retvalp) {

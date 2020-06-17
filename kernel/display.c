@@ -108,7 +108,7 @@ void clear_screen(uint8_t fore_COLOR, uint8_t color_bg)
   }
 }
 
-void console_putbytes(char *chaine, int32_t taille){
+void console_putbytes(const char *chaine, int32_t taille){
     for(int i = 0 ; i < taille; i++){
         write_car(chaine[i]);
     }

@@ -4,17 +4,17 @@
 #include "stdio.h"
 #include "clock.h"
 
-//extern int test_run(int n);
+extern int test_run(int n);
 
 int test3(void * arg){
-	printf("OK %d!\n",(int) arg);
+	printf("Watashi wa test3 desu. Soshite, whatashi no arg wa %d!\n",(int) arg);
 	return 5;
 }
 
 int test2(void * arg){
 	if((int) arg == 6){
 		printf("Watashi wa test2 desu\n");
-		//start(test3,4096,130,"test3",(void *) 5);
+		start(test3,4096,130,"test3",(void *) 5);
 	}else{
 		printf("Moo ii yo\n");
 	}
@@ -22,10 +22,13 @@ int test2(void * arg){
 }
 
 int test1(){
-	printf("Watashi wa number one desu\n");
-	//test_run(1);
+	printf("Watashi wa test1 desu\n");
+	test_run(1);
 	int pid = start(test2,4096,135,"test2",(void *) 6);
-	printf("Watashi no PID wa %d \n",pid);
+	printf("Test1 no PID wa %d \n",pid);
+	while(1) {
+		hlt();
+	}
 	return 0;
 }
 
@@ -41,11 +44,8 @@ void kernel_start(void)
 	clear_screen(COLOR_WHITE, COLOR_BLACK);
 
 	first_process(test1, 4096, "test1");
-	while(1) {
-		hlt();
-	}
-
-	return;
+	
+	sti();
 }
 
 

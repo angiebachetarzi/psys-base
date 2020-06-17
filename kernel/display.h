@@ -22,7 +22,7 @@
         * @param str : string to display
         * @param size : sizeof string
         */
-        void console_putbytes(char *str, int32_t size);
+        void console_putbytes(const char *str, int32_t size);
 
         /*
         * display_timer: display the timer up and to the left
