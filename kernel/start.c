@@ -21,11 +21,13 @@ int test2(void * arg){
 	return 666;
 }
 
-int test1(){
-	printf("Watashi wa test1 desu\n");
+int tests(){
+	printf("TESTS\n");
 	test_run(1);
-	int pid = start(test2,4096,135,"test2",(void *) 6);
-	printf("Test1 no PID wa %d \n",pid);
+	test_run(2);
+	//test_run(3);
+	// int pid = start(test2,4096,135,"test2",(void *) 6);
+	// printf("Test1 no PID wa %d \n",pid);
 	while(1) {
 		hlt();
 	}
@@ -45,7 +47,7 @@ void kernel_start(void)
 {
 	clear_screen(COLOR_WHITE, COLOR_BLACK);
 
-	first_process(test1, 4096, "test1");
+	start(tests, 4096, 128, "tests", NULL);
 	
 	sti();
 	

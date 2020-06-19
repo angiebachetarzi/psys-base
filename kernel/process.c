@@ -60,41 +60,50 @@ void next_process(uint8_t curr_state) {
 
 int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name, void *arg) {
 
-    process * new_proc = queue_out(&process_table.free_process, process, scheduling);
+    
+    if ((process_table.table_process[0]).pid == 1) {
 
-    new_proc -> name = name;
-    new_proc -> size = ssize;
-    new_proc -> pt_func = pt_func;
-    new_proc -> priority = prio;
-    new_proc -> arg = arg;
-    new_proc -> parent = process_table.current_process;
-    INIT_LIST_HEAD(&new_proc -> head_children);
-    //add new process to children list of parent
-    queue_add(new_proc, &(new_proc -> parent) -> head_children, process, nodes_children, priority);
+        process * new_proc = queue_out(&process_table.free_process, process, scheduling);
 
-    //new process list for the child
-    new_proc -> stack = mem_alloc(ssize);
-    uint32_t size = ssize / sizeof(uint32_t);
-            
-    new_proc -> context.esp = (uint32_t) &new_proc -> stack[size - 3];
+        new_proc -> name = name;
+        new_proc -> size = ssize;
+        new_proc -> pt_func = pt_func;
+        new_proc -> priority = prio;
+        new_proc -> arg = arg;
+        new_proc -> parent = process_table.current_process;
+        INIT_LIST_HEAD(&new_proc -> head_children);
+        //add new process to children list of parent
+        queue_add(new_proc, &(new_proc -> parent) -> head_children, process, nodes_children, priority);
 
-    new_proc -> stack[size - 1] = (uint32_t) arg;
-    new_proc -> stack[size - 2] = (uint32_t) exit_proc;
-    new_proc -> stack[size - 3] = (uint32_t) pt_func;
+        //new process list for the child
+        new_proc -> stack = mem_alloc(ssize);
+        uint32_t size = ssize / sizeof(uint32_t);
+                
+        new_proc -> context.esp = (uint32_t) &new_proc -> stack[size - 3];
 
-    //if the parent process has a lesser priority than it's child
-    if (process_table.current_process -> priority < new_proc -> priority) {
+        new_proc -> stack[size - 1] = (uint32_t) arg;
+        new_proc -> stack[size - 2] = (uint32_t) exit_proc;
+        new_proc -> stack[size - 3] = (uint32_t) pt_func;
 
-        switch_proc(new_proc, STATE_READY);
+        //if the parent process has a lesser priority than it's child
+        if (process_table.current_process -> priority < new_proc -> priority) {
+
+            switch_proc(new_proc, STATE_READY);
+
+        } else {
+
+            new_proc -> state = STATE_READY;
+            queue_add(new_proc,&process_table.ready_process,process,scheduling,priority);
+
+        }
+        return new_proc -> pid;
 
     } else {
-
-        new_proc -> state = STATE_READY;
-        queue_add(new_proc,&process_table.ready_process,process,scheduling,priority);
-
+        return first_process(pt_func, ssize, name);
     }
 
-    return new_proc -> pid;
+    return -1;
+    
 }
 
 void exit(int retval) {
@@ -226,6 +235,14 @@ int waitpid(int pid, int *retvalp) {
             //update return value with the one of the father
             *retvalp = (process_table.table_process[pid - 1]).return_value;
         }
+        (process_table.table_process[pid - 1]).state =  STATE_FREE;
+        //free the stack of the process
+        if ((process_table.table_process[pid - 1]).stack != NULL) {
+
+            mem_free((process_table.table_process[pid - 1]).stack, (process_table.table_process[pid - 1]).size);
+            queue_del(&(process_table.table_process[pid - 1]), nodes_children);
+
+        }
         return pid;
     }
     
@@ -239,5 +256,89 @@ int waitpid(int pid, int *retvalp) {
         *retvalp = (process_table.table_process[pid - 1]).return_value;
     }
 
+    int32_t current_wait_pid = (process_table.current_process) -> wait_pid_val;
+    (process_table.table_process[current_wait_pid - 1]).state =  STATE_FREE;
+        //free the stack of the process
+        if ((process_table.table_process[current_wait_pid - 1]).stack != NULL) {
+
+            mem_free((process_table.table_process[current_wait_pid - 1]).stack, (process_table.table_process[current_wait_pid - 1]).size);
+            queue_del(&(process_table.table_process[current_wait_pid - 1]), nodes_children);
+            
+        }
+
     return (process_table.current_process) -> wait_pid_val;
+}
+
+/*
+* function to kill children of process to be killed
+* proc: child process about to be murdered in cold blood
+*/
+void murder_children_recursive(process * proc) {
+
+    //take care of porential children of the child
+    process * tmp;
+    queue_for_each(tmp, &proc -> head_children, process, nodes_children) {
+        murder_children_recursive(tmp);
+    }
+
+    //delete the child process
+    queue_del(proc, scheduling);
+    //add process to free list
+    proc -> state =  STATE_FREE;
+    //free the stack of the process
+    if (proc -> stack != NULL) {
+        mem_free(proc -> stack, proc -> size);
+        queue_del(proc, nodes_children);
+    }
+
+    queue_add(proc, &process_table.free_process, process, scheduling, priority);
+}
+
+int kill(int pid) {
+    
+    if (pid < 1) {
+        return ERROR_PID;
+    }
+
+    //get the process to kill
+    process * to_kill = &process_table.table_process[pid - 1];
+
+    //if the parent was blocked by the process to kill
+    //aka state of child wait block
+    if ((to_kill -> parent) -> state == STATE_CHILD_WAIT_BLOCK) {
+
+        //if value of wait pid is < 0
+        if ((to_kill -> parent) -> wait_pid_val < 0) {
+
+            //update wait pid value
+            (to_kill -> parent) -> wait_pid_val = to_kill -> pid;
+        }
+
+        //add parent to ready list
+        (to_kill -> parent) -> state = STATE_READY;
+        queue_add(to_kill -> parent, &process_table.ready_process, process, scheduling, priority);
+
+    }
+
+    //kill all children of process to be killed (#sosad)
+    process * tmp;
+    queue_for_each(tmp, &to_kill -> head_children, process, nodes_children) {
+        murder_children_recursive(tmp);
+    }
+
+    //update return value
+    to_kill -> return_value = 0;
+
+    //actually kill process
+    queue_del(to_kill, scheduling);
+
+    //if we are killing the current process
+    //we need to switch to the next available one
+    if ((process_table.current_process) -> pid == (uint32_t) pid) {
+        next_process(STATE_ZOMBIE);
+    } else {
+        to_kill -> state = STATE_ZOMBIE;
+    }
+
+    return 0;
 }
