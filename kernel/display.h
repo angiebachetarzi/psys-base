@@ -6,21 +6,16 @@
     #ifndef DISPLAY_ASM
         #include "stdint.h"
         #define DISPLAY_ADR 0xB8000
-    
-        #define DISPLAY_TAB_NB 4
-        #define BUFFER_SIZE MAX_C * MAX_L
 
         /*
         * clear_screen : function to clear the console screen
-        * @param txt_COLOR : text color
-        * @param bg_COLOR : background color
         */
-        void clear_screen( uint8_t txt_COLOR, uint8_t bg_COLOR);
+        void clear_screen();
 
         /*
         * console_putbytes : write on console screen
-        * @param str : string to display
-        * @param size : sizeof string
+        * str : string to display
+        * size : sizeof string
         */
         void console_putbytes(const char *str, int32_t size);
 
@@ -33,10 +28,46 @@
 
         /*
         * set_cursor : change position of cursor on console
-        * @param l: new line
-        * @param c: new column
+        * l: new line
+        * c: new column
         */
         void set_cursor(uint32_t l, uint32_t c);
+
+        /*
+        * switch_car: take care of display of each car
+        * special cars included
+        * c: car to display
+        */
+        void switch_car(char c);
+
+        /*
+        * scroll: Well it's for scrolling, duh
+        */
+        void scroll(void);
+
+        /*
+        * ptr_mem: returns a ptr to memory corresponding to x and y
+        * x: line
+        * y: column
+        */
+        uint16_t *ptr_mem(uint32_t x, uint32_t y);
+
+        /*
+        * write_car: writes car on screen
+        * x: line
+        * y: column
+        * c: car
+        * txt: text color
+        * bg: background color
+        */
+        void write_car(uint32_t x, uint32_t y, char c, uint32_t txt, uint32_t bg);
+
+        /*
+        * set_cursor: sets cursor at position x and y
+        * x: line
+        * y: column
+        */
+        void set_cursor(uint32_t x, uint32_t y);
 
         enum display_color {
             COLOR_BLACK,

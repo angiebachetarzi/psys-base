@@ -32,20 +32,23 @@ int test1(){
 	return 0;
 }
 
+void timer() {
+	set_freq();
+	init_traitant(traitant_IT_32, 32);
+	demasq_irq(0);
+	while(1) {
+		hlt();
+	}
+}
+
 void kernel_start(void)
 {
-	unsigned long quartz;
-	unsigned long ticks;
-
-	clock_settings(&quartz,&ticks);
-	demasquage_IRQ();
-	init_traitant_IT32(&traitant_IT_32);
-
 	clear_screen(COLOR_WHITE, COLOR_BLACK);
 
 	first_process(test1, 4096, "test1");
 	
 	sti();
+	
 }
 
 

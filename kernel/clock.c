@@ -8,7 +8,6 @@
 
 uint32_t tic = 0;
 uint32_t counter = 0;
-uint32_t timing = BASE_FREQ / CLOCKFREQ;
 
 
 void tic_PIT(void) {
@@ -29,11 +28,8 @@ void tic_PIT(void) {
 }
 
 void clock_settings(unsigned long * quartz, unsigned long *ticks) {
-    outb(0x34,0x43);
-    outb(timing,0x40);
-    outb(timing/256,0x40);
-    *quartz = BASE_FREQ;
-    *ticks = timing;
+  *quartz = QUARTZ;
+  *ticks = QUARTZ/CLOCKFREQ;
 }
 
 uint32_t current_clock() {
@@ -41,22 +37,35 @@ uint32_t current_clock() {
 }
 
 void wait_clock(uint32_t wakeup) {
+  //temp
     printf("%d\n",wakeup);
 }
 
-void init_traitant_IT32(void (*traitant)(void))
-{
-    uint32_t *ptr = (uint32_t*) (0x1000 + 32 * 4 * 2);
-    uint32_t low = (uint32_t)traitant&0x0000FFFF;
-    uint32_t high = (uint32_t)traitant&0xFFFF0000;
-    *ptr = KERNEL_CS << 16 | low; 
-    *(ptr+1) = high | 0x8E00;
+void init_traitant(void (*traitant)(void), uint8_t n_interrupt) {
+  uint32_t * ad = (uint32_t *)(INTRPT_VECT_ADD + 2 * 4 * n_interrupt);
+  *ad = ((KERNEL_CS & 0xFFFF) << 16) | (((uint32_t)(traitant) & 0xFFFF));
+  *(ad + 1) = INTRPT_CST_LOWER | ((uint32_t)(traitant) & 0xFFFF0000);
 }
 
-void demasquage_IRQ() {
+void demasq_irq(uint32_t n_irq) {
+  uint8_t o;
+  uint8_t mask;
+  uint16_t port;
+  if (n_irq < 8) {
+    mask = 0xFF ^ (0x01 << n_irq);
+    port = IRQ_ADD_MASTER;
+  } else {
+    mask = 0xFF ^ (0x01 << (n_irq - 8));
+    port = IRQ_ADD_SLAVE;
+  }
+  o = inb(port) & mask;
+  o = o & mask;
+  outb(o, port);
+}
 
-   uint16_t tab = inb(0x21);
-   tab = tab&0b11111110;
-   outb(tab,0x21);
+void set_freq() {
+  uint16_t tab = inb(0x21);
+  tab = tab&0b11111110;
+  outb(tab,0x21);
 }
 
