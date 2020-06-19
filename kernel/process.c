@@ -213,6 +213,18 @@ int chprio(int pid, int newprio) {
     //update prio
     (process_table.table_process[pid - 1]).priority = newprio;
 
+    //if pid is of current process and we have at least one process available
+    if ((process_table.table_process[pid - 1]).pid == (process_table.current_process) -> pid
+    && !queue_empty(&process_table.ready_process)) {
+        //get the process next in line
+        process * top_proc = queue_top(&process_table.ready_process, process, scheduling);
+
+        //if that process has a higher priority, switch to it
+        if (top_proc -> priority > (process_table.current_process) -> priority) {
+            next_process(STATE_READY);
+        }
+    }
+
     return tmp_prio;
 
 }
@@ -263,7 +275,7 @@ int waitpid(int pid, int *retvalp) {
 
             mem_free((process_table.table_process[current_wait_pid - 1]).stack, (process_table.table_process[current_wait_pid - 1]).size);
             queue_del(&(process_table.table_process[current_wait_pid - 1]), nodes_children);
-            
+
         }
 
     return (process_table.current_process) -> wait_pid_val;

@@ -25,7 +25,7 @@ int tests(){
 	printf("TESTS\n");
 	test_run(1);
 	test_run(2);
-	//test_run(3);
+	test_run(3);
 	// int pid = start(test2,4096,135,"test2",(void *) 6);
 	// printf("Test1 no PID wa %d \n",pid);
 	while(1) {
