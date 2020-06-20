@@ -1,7 +1,7 @@
 #ifndef CLOCK_H
 #define CLOCK_H
 
-#define CLOCKFREQ 50
+#define CLOCKFREQ 100
 #define QUARTZ 0x1234DD
 #define IRQ_ADD_MASTER 0x21
 #define IRQ_ADD_SLAVE 0xA1

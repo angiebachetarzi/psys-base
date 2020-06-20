@@ -899,10 +899,10 @@ rand()
 /*******************************************************************************
  * Unmask interrupts for those who are working in kernel mode
  ******************************************************************************/
-/* static void test_it()
+static void test_it()
 {
 	__asm__ volatile("pushfl; testl $0x200,(%%esp); jnz 0f; sti; nop; cli; 0: addl $4,%%esp\n":::"memory");
-} */
+} 
 
 /*******************************************************************************
  * Test 1
@@ -1076,6 +1076,188 @@ test3(void)
 
 
 /*******************************************************************************
+ * Test 4
+ *
+ * Boucles d'attente active (partage de temps)
+ * chprio()
+ * kill() de processus de faible prio
+ * kill() de processus deja mort
+ ******************************************************************************/
+static const int loop_count0 = 5000;
+static const int loop_count1 = 10000;
+
+static int
+busy_loop1(void *arg)
+{
+	(void) arg;
+	while (1) {
+		int i, j;
+
+		printf(" A");
+		for (i=0; i<loop_count1; i++) {
+			test_it();
+			for (j=0; j<loop_count0; j++);
+		}
+	}
+	return 0;
+}
+
+/* assume the process to suspend has a priority == 64 */
+static int
+busy_loop2(void *arg)
+{
+	int i;
+
+	for (i = 0; i < 3; i++) {
+		int k, j;
+
+		printf(" B");
+		for (k=0; k<loop_count1; k++) {
+			test_it();
+			for (j=0; j<loop_count0; j++);
+		}
+	}
+	i = chprio((int) arg, 16);
+	assert(i == 64);
+	return 0;
+}
+
+static void
+test4(void)
+{
+	int pid1, pid2;
+	int r;
+	int arg = 0;
+
+	assert(getprio(getpid()) == 128);
+	pid1 = start(busy_loop1, 4000, 64, "busy1", (void *) arg);
+	assert(pid1 > 0);
+	pid2 = start(busy_loop2, 4000, 64, "busy2", (void *) pid1);
+	assert(pid2 > 0);
+	printf("1 -");
+	r = chprio(getpid(), 32);
+	assert(r == 128);
+	printf(" - 2");
+	r = kill(pid1);
+	assert(r == 0);
+	assert(waitpid(pid1, 0) == pid1);
+	r = kill(pid2);
+	assert(r < 0); /* kill d'un processus zombie */
+	assert(waitpid(pid2, 0) == pid2);
+	printf(" 3");
+	r = chprio(getpid(), 128);
+	assert(r == 32);
+	printf(" 4.\n");
+}
+
+
+/*******************************************************************************
+ * Test 5
+ *
+ * Tests de quelques parametres invalides.
+ * Certaines interdictions ne sont peut-etre pas dans la spec. Changez les pour
+ * faire passer le test correctement.
+ ******************************************************************************/
+static int
+no_run(void *arg)
+{
+	(void)arg;
+	assert(0);
+	return 1;
+}
+
+static int
+waiter(void *arg)
+{
+	int pid = (int)arg;
+	assert(kill(pid) == 0);
+	assert(waitpid(pid, 0) < 0);
+	return 1;
+}
+
+static void
+test5(void)
+{
+	int pid1, pid2;
+	int r;
+
+	// Le processus 0 et la priorite 0 sont des parametres invalides
+	assert(kill(0) < 0);
+	assert(chprio(getpid(), 0) < 0);
+	assert(getprio(getpid()) == 128);
+	pid1 = start(no_run, 4000, 64, "norun", 0);
+	assert(pid1 > 0);
+	assert(kill(pid1) == 0);
+	assert(kill(pid1) < 0); //pas de kill de zombie
+	assert(chprio(pid1, 128) < 0); //changer la priorite d'un zombie
+	assert(chprio(pid1, 64) < 0); //changer la priorite d'un zombie
+	assert(waitpid(pid1, 0) == pid1);
+	assert(waitpid(pid1, 0) < 0);
+	pid1 = start(no_run, 4000, 64, "norun", 0);
+	assert(pid1 > 0);
+	pid2 = start(waiter, 4000, 65, "waiter", (void *)pid1);
+	assert(pid2 > 0);
+	assert(waitpid(pid2, &r) == pid2);
+	assert(r == 1);
+	assert(waitpid(pid1, &r) == pid1);
+	assert(r == 0);
+	printf("ok.\n");
+}
+
+
+/*******************************************************************************
+ * Test 6
+ *
+ * Waitpid multiple.
+ * Creation de processus avec differentes tailles de piles.
+ ******************************************************************************/
+extern int __proc6_1(void *arg);
+extern int __proc6_2(void *arg);
+
+__asm__(
+".text\n"
+".globl __proc6_1\n"
+"__proc6_1:\n"
+"movl $3,%eax\n"
+"ret\n"
+".globl __proc6_2\n"
+"__proc6_2:\n"
+"movl 4(%esp),%eax\n"
+"pushl %eax\n"
+"popl %eax\n"
+"ret\n"
+".previous\n"
+);
+
+static void
+test6(void)
+{
+	int pid1, pid2, pid3;
+	int ret;
+
+	assert(getprio(getpid()) == 128);
+	pid1 = start(__proc6_1, 0, 64, "proc6_1", 0);
+	assert(pid1 > 0);
+	pid2 = start(__proc6_2, 4, 66, "proc6_2", (void*)4);
+	assert(pid2 > 0);
+	pid3 = start(__proc6_2, 0xffffffff, 65, "proc6_3", (void*)5);
+	assert(pid3 < 0);
+	pid3 = start(__proc6_2, 8, 65, "proc6_3", (void*)5);
+	assert(pid3 > 0);
+	assert(waitpid(-1, &ret) == pid2);
+	assert(ret == 4);
+	assert(waitpid(-1, &ret) == pid3);
+	assert(ret == 5);
+	assert(waitpid(-1, &ret) == pid1);
+	assert(ret == 3);
+	assert(waitpid(pid1, 0) < 0);
+	assert(waitpid(-1, 0) < 0);
+	assert(waitpid(getpid(), 0) < 0);
+	printf("ok.\n");
+}
+
+
+/*******************************************************************************
  * Fin des tests
  ******************************************************************************/
 
@@ -1094,9 +1276,9 @@ static struct {
 	{"1", test1},
 	{"2", test2},
 	{"3", test3},
-	// {"4", test4},
-	// {"5", test5},
-	// {"6", test6},
+	{"4", test4},
+	{"5", test5},
+	{"6", test6},
 	// {"7", test7},
 	// {"8", test8},
 	// {"9", test9},

@@ -31,6 +31,14 @@ void switch_proc(process * next, uint8_t state) {
 
         //add old process to free list
         curr -> state = STATE_FREE;
+
+        if (curr -> stack != NULL) {
+
+            mem_free(curr -> stack, curr -> size);
+            queue_del(curr, nodes_children);
+        
+        }
+        
         queue_add(curr, &process_table.free_process, process, scheduling, priority);
 
         }
@@ -46,10 +54,7 @@ void switch_proc(process * next, uint8_t state) {
                         &next -> context);
 }
 
-/*
-* Get next process in ready list and change to that process
-* curr_state: state of current process
-*/
+
 void next_process(uint8_t curr_state) {
 
     process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
@@ -60,7 +65,6 @@ void next_process(uint8_t curr_state) {
 
 int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name, void *arg) {
 
-    
     if ((process_table.table_process[0]).pid == 1) {
 
         process * new_proc = queue_out(&process_table.free_process, process, scheduling);
@@ -136,6 +140,14 @@ void exit(int retval) {
 
             //set state of process to free
             tmp -> state = STATE_FREE;
+
+            //free stack
+            if (tmp -> stack != NULL) {
+
+            mem_free(tmp -> stack, tmp -> size);
+            queue_del(tmp, nodes_children);
+        
+            }
             //add it to the free prcess list
             queue_add(tmp, &process_table.free_process, process, scheduling, priority);
 
@@ -156,6 +168,7 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
     //init the free and ready lists of processes
     INIT_LIST_HEAD(&process_table.free_process);
     INIT_LIST_HEAD(&process_table.ready_process);
+    INIT_LIST_HEAD(&process_table.asleep_process);
 
     //init static table of processes
     //setting their pids and their states at free
@@ -163,6 +176,12 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
     for (int i = 1; i < N_PROC; i++) {
         (process_table.table_process[i]).pid = i + 1;
         (process_table.table_process[i]).state = STATE_FREE;
+        if ((process_table.table_process[i]).stack != NULL) {
+
+            mem_free((process_table.table_process[i]).stack, (process_table.table_process[i]).size);
+            queue_del(&(process_table.table_process[i]), nodes_children);
+        
+        }
         queue_add(&(process_table.table_process[i]), &process_table.free_process, process, scheduling, priority);
     }
 
@@ -204,10 +223,32 @@ int getpid() {
 }
 
 int getprio(int pid) {
+
     return (process_table.table_process[pid - 1]).priority;
 }
 
+process * current_process() {
+    return process_table.current_process;
+}
+
+link * asleep_process_list() {
+    return &process_table.asleep_process;
+}
+
+link * ready_process_list() {
+    return &process_table.ready_process;
+}
+
 int chprio(int pid, int newprio) {
+    
+    if(newprio < 1 || newprio > MAX_PRIORITY){
+        return -1;
+    }
+
+    if(process_table.table_process[pid - 1].state == STATE_ZOMBIE){
+        return -1;
+    }
+
     //get old prio
     int32_t tmp_prio = (process_table.table_process[pid - 1]).priority;
     //update prio
@@ -216,6 +257,7 @@ int chprio(int pid, int newprio) {
     //if pid is of current process and we have at least one process available
     if ((process_table.table_process[pid - 1]).pid == (process_table.current_process) -> pid
     && !queue_empty(&process_table.ready_process)) {
+
         //get the process next in line
         process * top_proc = queue_top(&process_table.ready_process, process, scheduling);
 
@@ -223,6 +265,14 @@ int chprio(int pid, int newprio) {
         if (top_proc -> priority > (process_table.current_process) -> priority) {
             next_process(STATE_READY);
         }
+
+    } else if ((process_table.table_process[pid - 1]).state == STATE_READY) {
+
+        queue_del(&(process_table.table_process[pid - 1]), scheduling);
+
+        (process_table.table_process[pid - 1]).state = STATE_READY;
+
+        queue_add(&(process_table.table_process[pid - 1]), &process_table.ready_process, process, scheduling, priority);
     }
 
     return tmp_prio;
@@ -231,13 +281,13 @@ int chprio(int pid, int newprio) {
 
 int waitpid(int pid, int *retvalp) {
 
-    if (pid < 1) {
-        return ERROR_PID;
+    if(process_table.table_process[pid - 1].state == STATE_FREE){
+        return -1;
     }
 
     if (queue_empty(&(process_table.current_process) -> head_children)
         || (process_table.table_process[pid - 1]).parent -> pid != (uint32_t) getpid()) {
-        return ERROR_CHILD;
+        return -1;
     }
 
     //if father is zombie and pid is not of the first process
@@ -307,13 +357,17 @@ void murder_children_recursive(process * proc) {
 }
 
 int kill(int pid) {
-    
+
     if (pid < 1) {
-        return ERROR_PID;
+        return -1;
     }
 
     //get the process to kill
     process * to_kill = &process_table.table_process[pid - 1];
+
+    if(to_kill -> state == STATE_ZOMBIE){
+        return -1;
+    }
 
     //if the parent was blocked by the process to kill
     //aka state of child wait block

@@ -4,6 +4,8 @@
 #include "stdio.h"
 #include "cpu.h"
 #include "segment.h"
+#include "process.h"
+#include "queue.h"
 
 
 uint32_t tic = 0;
@@ -25,6 +27,7 @@ void tic_PIT(void) {
     counter++;
   }
   tic++;
+
 }
 
 void clock_settings(unsigned long * quartz, unsigned long *ticks) {
@@ -36,9 +39,18 @@ uint32_t current_clock() {
     return tic;
 }
 
-void wait_clock(uint32_t wakeup) {
-  //temp
-    printf("%d\n",wakeup);
+void wait_clock(uint32_t wakeup_time) {
+
+  //get current process
+  process * curr = current_process();
+  //now current goes to sleep until wakeup time
+  curr -> state = STATE_ASLEEP;
+  curr -> sleep_time = wakeup_time;
+  //add current to sleep list
+  queue_add(curr, asleep_process_list(), process, scheduling, sleep_time);
+  //move on to next process
+  next_process(STATE_ASLEEP);
+
 }
 
 void init_traitant(void (*traitant)(void), uint8_t n_interrupt) {

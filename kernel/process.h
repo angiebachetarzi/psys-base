@@ -6,28 +6,27 @@
     #include "stdint.h"
     
 
-    #define STATE_FREE 0x00
-    #define STATE_READY 0x01
-    #define STATE_ACTIVE 0x02
-    //blocked on semaphore
-    #define STATE_SM_BLOCK 0x03
-    //blocked on IO
-    #define STATE_IO_BLOCK 0x04
-    //blocked waiting for child
-    #define STATE_CHILD_WAIT_BLOCK 0x05
-    #define STATE_SLEEP 0x06
-    #define STATE_ZOMBIE 0x07
+    enum states {
+        STATE_FREE,
+        STATE_READY, 
+        STATE_ACTIVE,
+        //blocked on semaphore
+        STATE_SM_BLOCK,
+        //blocked on IO
+        STATE_IO_BLOCK,
+        //blocked waiting for child
+        STATE_CHILD_WAIT_BLOCK,
+        STATE_SLEEP,
+        STATE_ZOMBIE,
+        STATE_ASLEEP
+    };
+    
 
 
     #define MAX_PRIORITY 256
     #define N_PROC 30
     #define DEFAULT_PRIORITY 128
-
-
-    //errors
-    #define ERROR_PRIO -1
-    #define ERROR_PID -2
-    #define ERROR_CHILD -3
+    
 
     /*
     * structure of process
@@ -47,6 +46,7 @@
     * head_children: head of list of children of process
     * nodes_children: nodes of the list
     * NB: nodes_children is only here so i can use queue_for_each function
+    * sleep_time: clock value to wait before waking up
     */
     typedef struct _process {
         uint32_t pid;
@@ -64,6 +64,7 @@
         int32_t wait_pid_val;
         link head_children;
         link nodes_children;
+        uint32_t sleep_time;
     } process;
 
     /*
@@ -72,12 +73,14 @@
     * table_process: static list of processes
     * free_process: head of list of free processes
     * ready_process: head of list of ready processes
+    * sleep_process: head of list of asleep processes
     */
     struct procTable{
         process * current_process;
         process table_process[N_PROC];
         link free_process;
         link ready_process;
+        link asleep_process;
     } ;
     typedef struct procTable proc_table;
 
@@ -136,5 +139,26 @@
     * get pid of process
     */
     int getpid(void);
+
+    /*
+    * get current process
+    */
+   process * current_process();
+
+    /*
+    * get sleep process list
+    */
+   link * asleep_process_list();
+
+   /*
+    * get sleep process list
+    */
+   link * ready_process_list();
+
+    /*
+    * Get next process in ready list and change to that process
+    * curr_state: state of current process
+    */
+   void next_process(uint8_t state);
 
 #endif
