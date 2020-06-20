@@ -26,7 +26,7 @@ int tests(){
 	test_run(1);
 	test_run(2);
 	test_run(3);
-	// test_run(4);
+	test_run(4);
 	test_run(5);
 	test_run(6);
 	// int pid = start(test2,4096,135,"test2",(void *) 6);
@@ -37,23 +37,16 @@ int tests(){
 	return 0;
 }
 
-void timer() {
-	set_freq();
-	init_traitant(traitant_IT_32, 32);
-	demasq_irq(0);
-	while(1) {
-		hlt();
-	}
-}
-
 void kernel_start(void)
 {
+	
+	set_freq();
+	init_traitant_IT(traitant_IT_32, 32);
+	demasq_irq(0);
+	
 	clear_screen(COLOR_WHITE, COLOR_BLACK);
 
 	start(tests, 4096, 128, "tests", NULL);
-	
-	sti();
-	
 }
 
 

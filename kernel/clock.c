@@ -9,24 +9,25 @@
 
 
 uint32_t tic = 0;
-uint32_t counter = 0;
 
 
 void tic_PIT(void) {
   outb(0x20, 0x20);
-  if (tic % CLOCKFREQ == 0) {
-    uint32_t h, m, s;
-    char r[MAX_C];
-
-    tic = 0;
-    s = counter % 60;
-    m = ((counter - s) % 3600) / 60;
-    h = ((counter - m)) / 3600;
-    uint32_t size = sprintf(r, "UPTIME : %02d:%02d:%02d\n", h, m, s);
-    display_timer(r, size-1);
-    counter++;
-  }
   tic++;
+  if (current_clock() % (CLOCKFREQ/SCHEDFREQ) == 0) {
+    //wakey wakey little sleepy process
+    process * tmp;
+    queue_for_each(tmp, asleep_process_list(), process, scheduling) {
+      //if process is ready to be awaken
+      if (current_clock() >= tmp -> sleep_time) {
+        queue_del(tmp, scheduling);
+        //add the process to the ready list
+        tmp -> state = STATE_READY;
+        queue_add(tmp, ready_process_list(), process, scheduling, priority);
+      }
+    } 
+    next_process(STATE_READY);     
+  }
 
 }
 
@@ -53,31 +54,35 @@ void wait_clock(uint32_t wakeup_time) {
 
 }
 
-void init_traitant(void (*traitant)(void), uint8_t n_interrupt) {
-  uint32_t * ad = (uint32_t *)(INTRPT_VECT_ADD + 2 * 4 * n_interrupt);
-  *ad = ((KERNEL_CS & 0xFFFF) << 16) | (((uint32_t)(traitant) & 0xFFFF));
-  *(ad + 1) = INTRPT_CST_LOWER | ((uint32_t)(traitant) & 0xFFFF0000);
+void init_traitant_IT(void (*traitant)(void), uint8_t n_interrupt) {
+    uint32_t fist_word;
+    uint32_t second_word;
+    uint32_t * address;
+
+    fist_word = (KERNEL_CS << 16) | ((uint32_t)traitant & 0x0000FFFF);
+    if (n_interrupt == 49) {
+        second_word = ((uint32_t)traitant & 0xFFFF0000) | (0xEE00);
+    } else {
+        second_word = ((uint32_t)traitant & 0xFFFF0000) | (0x8E00);
+    }
+    
+    address = (uint32_t*)(0x1000 + 8 * n_interrupt);
+    
+    (*address) = fist_word;
+    address = address + 1;
+    (*address) = second_word;
 }
 
 void demasq_irq(uint32_t n_irq) {
-  uint8_t o;
-  uint8_t mask;
-  uint16_t port;
-  if (n_irq < 8) {
-    mask = 0xFF ^ (0x01 << n_irq);
-    port = IRQ_ADD_MASTER;
-  } else {
-    mask = 0xFF ^ (0x01 << (n_irq - 8));
-    port = IRQ_ADD_SLAVE;
-  }
-  o = inb(port) & mask;
-  o = o & mask;
-  outb(o, port);
+  unsigned char cur_mask = inb(0x21);
+  unsigned char mask = 0xFF ^ (0x01 << n_irq);
+  mask = cur_mask & mask;
+  outb(mask, 0x21);
 }
 
 void set_freq() {
-  uint16_t tab = inb(0x21);
-  tab = tab&0b11111110;
-  outb(tab,0x21);
+  outb(0x34, 0x43);
+  outb((QUARTZ / CLOCKFREQ) % 256, 0x40);
+  outb((QUARTZ / CLOCKFREQ) >> 8, 0x40);
 }
 

@@ -3,10 +3,7 @@
 
 #define CLOCKFREQ 100
 #define QUARTZ 0x1234DD
-#define IRQ_ADD_MASTER 0x21
-#define IRQ_ADD_SLAVE 0xA1
-#define INTRPT_VECT_ADD 0x1000
-#define INTRPT_CST_LOWER 0x8E00
+#define SCHEDFREQ 50
 
 void tic_PIT(void);
 
@@ -16,7 +13,7 @@ uint32_t current_clock();
 
 void wait_clock(uint32_t wakeup);
 
-void init_traitant(void (*traitant) (void), uint8_t n_interrupt);
+void init_traitant_IT(void (*traitant) (void), uint8_t n_interrupt);
 
 void set_freq();
 
