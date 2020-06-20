@@ -34,7 +34,7 @@ void switch_proc(process * next, uint8_t state) {
 
         if (curr -> stack != NULL) {
 
-            mem_free(curr -> stack, curr -> size);
+            mem_free(curr -> stack, curr -> size + 4096);
             queue_del(curr, nodes_children);
         
         }
@@ -65,6 +65,14 @@ void next_process(uint8_t curr_state) {
 
 int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name, void *arg) {
 
+    if (ssize > INT32_MAX
+        || prio < 1
+        || prio > MAX_PRIORITY) {
+
+        return -1;
+        
+    }
+
     if ((process_table.table_process[0]).pid == 1) {
 
         process * new_proc = queue_out(&process_table.free_process, process, scheduling);
@@ -80,8 +88,8 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
         queue_add(new_proc, &(new_proc -> parent) -> head_children, process, nodes_children, priority);
 
         //new process list for the child
-        new_proc -> stack = mem_alloc(ssize);
-        uint32_t size = ssize / sizeof(uint32_t);
+        new_proc -> stack = mem_alloc(ssize + 4096);
+        uint32_t size = (ssize + 4096) / sizeof(uint32_t);
                 
         new_proc -> context.esp = (uint32_t) &new_proc -> stack[size - 3];
 
@@ -144,7 +152,7 @@ void exit(int retval) {
             //free stack
             if (tmp -> stack != NULL) {
 
-            mem_free(tmp -> stack, tmp -> size);
+            mem_free(tmp -> stack, tmp -> size + 4096);
             queue_del(tmp, nodes_children);
         
             }
@@ -178,7 +186,7 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
         (process_table.table_process[i]).state = STATE_FREE;
         if ((process_table.table_process[i]).stack != NULL) {
 
-            mem_free((process_table.table_process[i]).stack, (process_table.table_process[i]).size);
+            mem_free((process_table.table_process[i]).stack, (process_table.table_process[i]).size + 4096);
             queue_del(&(process_table.table_process[i]), nodes_children);
         
         }
@@ -224,6 +232,12 @@ int getpid() {
 
 int getprio(int pid) {
 
+    if (pid < 1 || pid > N_PROC) {
+
+        return -1;
+
+    }
+
     return (process_table.table_process[pid - 1]).priority;
 }
 
@@ -241,11 +255,10 @@ link * ready_process_list() {
 
 int chprio(int pid, int newprio) {
     
-    if(newprio < 1 || newprio > MAX_PRIORITY){
-        return -1;
-    }
+    if(newprio < 1 || newprio > MAX_PRIORITY
+        || pid < 1 || pid > N_PROC
+        || (process_table.table_process[pid - 1]).state == STATE_ZOMBIE){
 
-    if(process_table.table_process[pid - 1].state == STATE_ZOMBIE){
         return -1;
     }
 
@@ -281,12 +294,10 @@ int chprio(int pid, int newprio) {
 
 int waitpid(int pid, int *retvalp) {
 
-    if(process_table.table_process[pid - 1].state == STATE_FREE){
-        return -1;
-    }
+    if(pid == 0 || pid > N_PROC
+        || (process_table.current_process) -> pid == (uint32_t) pid
+        || queue_empty(&(process_table.current_process) -> head_children)){
 
-    if (queue_empty(&(process_table.current_process) -> head_children)
-        || (process_table.table_process[pid - 1]).parent -> pid != (uint32_t) getpid()) {
         return -1;
     }
 
@@ -301,7 +312,7 @@ int waitpid(int pid, int *retvalp) {
         //free the stack of the process
         if ((process_table.table_process[pid - 1]).stack != NULL) {
 
-            mem_free((process_table.table_process[pid - 1]).stack, (process_table.table_process[pid - 1]).size);
+            mem_free((process_table.table_process[pid - 1]).stack, (process_table.table_process[pid - 1]).size + 4096);
             queue_del(&(process_table.table_process[pid - 1]), nodes_children);
 
         }
@@ -314,16 +325,17 @@ int waitpid(int pid, int *retvalp) {
     //move on to next process
     next_process(STATE_CHILD_WAIT_BLOCK);
 
+    int32_t current_wait_pid = (process_table.current_process) -> wait_pid_val;
+
     if(retvalp != NULL){
-        *retvalp = (process_table.table_process[pid - 1]).return_value;
+        *retvalp = (process_table.table_process[current_wait_pid - 1]).return_value;
     }
 
-    int32_t current_wait_pid = (process_table.current_process) -> wait_pid_val;
     (process_table.table_process[current_wait_pid - 1]).state =  STATE_FREE;
         //free the stack of the process
         if ((process_table.table_process[current_wait_pid - 1]).stack != NULL) {
 
-            mem_free((process_table.table_process[current_wait_pid - 1]).stack, (process_table.table_process[current_wait_pid - 1]).size);
+            mem_free((process_table.table_process[current_wait_pid - 1]).stack, (process_table.table_process[current_wait_pid - 1]).size + 4096);
             queue_del(&(process_table.table_process[current_wait_pid - 1]), nodes_children);
 
         }
@@ -349,7 +361,7 @@ void murder_children_recursive(process * proc) {
     proc -> state =  STATE_FREE;
     //free the stack of the process
     if (proc -> stack != NULL) {
-        mem_free(proc -> stack, proc -> size);
+        mem_free(proc -> stack, proc -> size + 4096);
         queue_del(proc, nodes_children);
     }
 
@@ -358,14 +370,15 @@ void murder_children_recursive(process * proc) {
 
 int kill(int pid) {
 
-    if (pid < 1) {
+    if (pid < 1 || pid > N_PROC) {
         return -1;
     }
 
     //get the process to kill
     process * to_kill = &process_table.table_process[pid - 1];
 
-    if(to_kill -> state == STATE_ZOMBIE){
+    if(to_kill -> state == STATE_ZOMBIE
+        || to_kill -> state == STATE_FREE){
         return -1;
     }
 
