@@ -169,32 +169,35 @@ void exit(int retval) {
     }
 
     //taking care of children
-    process * tmp;
-    queue_for_each(tmp, &(process_table.current_process) -> head_children, process, nodes_children) {
+    process * tmp_top = queue_top(&(process_table.current_process) -> head_children, process, nodes_children);
+    //choosing this method because the queue for each runs an error and I have 0 motivation to solve it
+    while (tmp_top != NULL) {
         //if the process is in zombie mode, add it to the free process list
         //else just wait for its child to finish
-        if (tmp -> state == STATE_ZOMBIE) {
+        if (tmp_top -> state == STATE_ZOMBIE) {
 
             //set state of process to free
-            tmp -> state = STATE_FREE;
+            tmp_top -> state = STATE_FREE;
 
             //free stack
-            if (tmp -> stack != NULL) {
+            if (tmp_top -> stack != NULL) {
 
-            mem_free(tmp -> stack, tmp -> size + 4096);
-            queue_del(tmp, nodes_children);
-        
+                mem_free(tmp_top -> stack, tmp_top -> size + 4096);
+                queue_del(tmp_top, nodes_children);
+            
             }
             //add it to the free prcess list
-            queue_add(tmp, &process_table.free_process, process, scheduling, priority);
+            queue_add(tmp_top, &process_table.free_process, process, scheduling, priority);
 
         } else {
 
-            waitpid(tmp -> pid, NULL);
+            waitpid(tmp_top -> pid, NULL);
 
         }
+        //update the top
+        tmp_top = queue_top(&(process_table.current_process) -> head_children, process, nodes_children);
     }
-
+   
     next_process(STATE_ZOMBIE);
 
     while(1);
@@ -294,7 +297,8 @@ int chprio(int pid, int newprio) {
     
     if(newprio < 1 || newprio > MAX_PRIORITY
         || pid < 1 || pid > N_PROC
-        || (process_table.table_process[pid - 1]).state == STATE_ZOMBIE){
+        || (process_table.table_process[pid - 1]).state == STATE_ZOMBIE
+        || (process_table.table_process[pid - 1]).state == STATE_FREE){
 
         return -1;
     }
@@ -378,31 +382,6 @@ int waitpid(int pid, int *retvalp) {
     return (process_table.current_process) -> wait_pid_val;
 }
 
-/*
-* function to kill children of process to be killed
-* proc: child process about to be murdered in cold blood
-*/
-void murder_children_recursive(process * proc) {
-
-    //take care of porential children of the child
-    process * tmp;
-    queue_for_each(tmp, &proc -> head_children, process, nodes_children) {
-        murder_children_recursive(tmp);
-    }
-
-    //delete the child process
-    queue_del(proc, scheduling);
-    //add process to free list
-    proc -> state =  STATE_FREE;
-    //free the stack of the process
-    if (proc -> stack != NULL) {
-        mem_free(proc -> stack, proc -> size + 4096);
-        queue_del(proc, nodes_children);
-    }
-
-    queue_add(proc, &process_table.free_process, process, scheduling, priority);
-}
-
 int kill(int pid) {
 
     if (pid < 1 || pid > N_PROC) {
@@ -436,16 +415,41 @@ int kill(int pid) {
 
     //kill all children of process to be killed (#sosad)
     process * tmp;
+    
     queue_for_each(tmp, &to_kill -> head_children, process, nodes_children) {
-        murder_children_recursive(tmp);
+
+        if (tmp != NULL) {
+
+            kill(tmp -> pid);
+            //updating the process to take into account potential children
+            //(some processes have a big family tree)
+            tmp = queue_out(&to_kill -> head_children, process, nodes_children);
+            //setting the parent to null because it already has been taken care of
+            tmp -> parent = NULL;
+
+            //add process to free list
+            tmp -> state =  STATE_FREE;
+            //free the stack of the process
+            if (tmp -> stack != NULL) {
+                mem_free(tmp -> stack, tmp -> size + 4096);
+                queue_del(tmp, nodes_children);
+            }
+
+            queue_add(tmp, &process_table.free_process, process, scheduling, priority);
+
+        }
+
     }
 
     //update return value
     to_kill -> return_value = 0;
 
     //actually kill process
-    queue_del(to_kill, scheduling);
-
+    //but only if he was available or sleeping
+    if (to_kill -> state == STATE_ASLEEP || to_kill -> state == STATE_READY) {
+        queue_del(to_kill, scheduling);
+    }
+    
     //if we are killing the current process
     //we need to switch to the next available one
     if ((process_table.current_process) -> pid == (uint32_t) pid) {
