@@ -17,16 +17,28 @@ void tic_PIT(void) {
   if (current_clock() % (CLOCKFREQ/SCHEDFREQ) == 0) {
     //wakey wakey little sleepy process
     process * tmp;
-    queue_for_each(tmp, asleep_process_list(), process, scheduling) {
-      //if process is ready to be awaken
-      if (current_clock() >= tmp -> sleep_time) {
-        queue_del(tmp, scheduling);
-        //add the process to the ready list
-        tmp -> state = STATE_READY;
-        queue_add(tmp, ready_process_list(), process, scheduling, priority);
+    int isDone = 1;
+    while (isDone){
+      //assumes that the foreach is gonna be done once
+      isDone = 0;
+      queue_for_each(tmp, asleep_process_list(), process, scheduling) {
+        //if process is ready to be awaken
+        if (current_clock() >= tmp -> sleep_time) {
+          queue_del(tmp, scheduling);
+          //add the process to the ready list
+          tmp -> state = STATE_READY;
+          queue_add(tmp, ready_process_list(), process, scheduling, priority);
+          //if one process is awaken, go back to beginning of the list
+          //to check if other processes need to be awaken too
+          isDone = 1;
+          break;
+        }
       }
-    } 
-    next_process(STATE_READY);     
+    }
+    //check if kernel is in sleeping mode and that there is at least one process available
+    //before switching
+    if (!queue_empty(ready_process_list()) && state_kernel() != STATE_KERNEL_SLEEPING)
+      next_process(STATE_READY); 
   }
 
 }

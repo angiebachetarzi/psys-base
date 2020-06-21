@@ -7,6 +7,13 @@ extern void exit_proc();
 
 proc_table process_table;
 
+void idle(void) {
+   
+    __asm__ __volatile__ ("sti");
+    __asm__ __volatile__ ("hlt");
+    __asm__ __volatile__ ("cli");
+}
+
 /*
 * Switch to next process
 * next: the next process
@@ -15,8 +22,10 @@ proc_table process_table;
 void switch_proc(process * next, uint8_t state) {
 
     process * curr = process_table.current_process;
+
     //next process becomes active
     next -> state = STATE_ACTIVE;
+
     //update current process
     process_table.current_process = next;
 
@@ -36,13 +45,12 @@ void switch_proc(process * next, uint8_t state) {
 
             mem_free(curr -> stack, curr -> size + 4096);
             queue_del(curr, nodes_children);
-        
+            
         }
-        
+            
         queue_add(curr, &process_table.free_process, process, scheduling, priority);
 
-        }
-        else {
+        } else {
 
             curr -> state = state;
 
@@ -50,16 +58,35 @@ void switch_proc(process * next, uint8_t state) {
     }
 
     //switch context to next proc
-    context_switch(&curr -> context ,
-                        &next -> context);
+    context_switch(&curr -> context , &next -> context);
+
 }
 
 
 void next_process(uint8_t curr_state) {
 
-    process * next_proc = queue_out(&process_table.ready_process, process, scheduling);
-    switch_proc(next_proc, curr_state);
+    //get first available process
+    process * next_proc = queue_top(&process_table.ready_process, process, scheduling);
 
+    //if process is null, that means the kernel is in sleep mode
+    //get next process and do nothing (idle)
+    while (next_proc == NULL) {
+        process_table.kernel_state = STATE_KERNEL_SLEEPING;
+        next_proc = queue_top(&process_table.ready_process, process, scheduling);
+        idle();
+    }
+
+    //if we find a not null process, that means the kernel is in run mode
+    process_table.kernel_state = STATE_KERNEL_RUNNING;
+
+    //if the priority of the available process is higher than the current one
+    //switch processes
+    if (next_proc -> priority >= (process_table.current_process) -> priority
+        || curr_state != STATE_READY) {
+            
+            next_proc = queue_out(&process_table.ready_process, process, scheduling);
+            switch_proc(next_proc, curr_state);
+    }
 }
 
 
@@ -73,6 +100,8 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
         
     }
 
+    //if the first process of the table is 1
+    //that means that the process to be started is not the first
     if ((process_table.table_process[0]).pid == 1) {
 
         process * new_proc = queue_out(&process_table.free_process, process, scheduling);
@@ -178,11 +207,15 @@ int first_process(int (*pt_func)(void*), unsigned long ssize, const char *name) 
     INIT_LIST_HEAD(&process_table.ready_process);
     INIT_LIST_HEAD(&process_table.asleep_process);
 
+    //default state of kernel is run mode
+    process_table.kernel_state = STATE_KERNEL_RUNNING;
+
     //init static table of processes
     //setting their pids and their states at free
     //NB: starting at 1 because the first one is for the first process, duh!
     for (int i = 1; i < N_PROC; i++) {
         (process_table.table_process[i]).pid = i + 1;
+        //free the process
         (process_table.table_process[i]).state = STATE_FREE;
         if ((process_table.table_process[i]).stack != NULL) {
 
@@ -253,6 +286,10 @@ link * ready_process_list() {
     return &process_table.ready_process;
 }
 
+uint8_t state_kernel() {
+    return process_table.kernel_state;
+}
+
 int chprio(int pid, int newprio) {
     
     if(newprio < 1 || newprio > MAX_PRIORITY
@@ -268,18 +305,16 @@ int chprio(int pid, int newprio) {
     (process_table.table_process[pid - 1]).priority = newprio;
 
     //if pid is of current process and we have at least one process available
+    //switch processes
     if ((process_table.table_process[pid - 1]).pid == (process_table.current_process) -> pid
     && !queue_empty(&process_table.ready_process)) {
 
-        //get the process next in line
-        process * top_proc = queue_top(&process_table.ready_process, process, scheduling);
-
-        //if that process has a higher priority, switch to it
-        if (top_proc -> priority > (process_table.current_process) -> priority) {
             next_process(STATE_READY);
-        }
 
-    } else if ((process_table.table_process[pid - 1]).state == STATE_READY) {
+    }
+    //if the concerned process is ready
+    //add it to the list of available processes
+    else if ((process_table.table_process[pid - 1]).state == STATE_READY) {
 
         queue_del(&(process_table.table_process[pid - 1]), scheduling);
 

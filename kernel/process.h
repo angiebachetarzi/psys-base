@@ -6,7 +6,7 @@
     #include "stdint.h"
     
 
-    enum states {
+    enum process_states {
         STATE_FREE,
         STATE_READY, 
         STATE_ACTIVE,
@@ -19,6 +19,11 @@
         STATE_SLEEP,
         STATE_ZOMBIE,
         STATE_ASLEEP
+    };
+
+    enum kernel_states {
+        STATE_KERNEL_RUNNING,
+        STATE_KERNEL_SLEEPING
     };
     
 
@@ -74,6 +79,7 @@
     * free_process: head of list of free processes
     * ready_process: head of list of ready processes
     * sleep_process: head of list of asleep processes
+    * kernel_state: current state of kernel (sleeping or running)
     */
     struct procTable{
         process * current_process;
@@ -81,6 +87,7 @@
         link free_process;
         link ready_process;
         link asleep_process;
+        uint8_t kernel_state;
     } ;
     typedef struct procTable proc_table;
 
@@ -160,5 +167,16 @@
     * curr_state: state of current process
     */
    void next_process(uint8_t state);
+
+    /*
+    * represents "doing nothing" for the cpu
+    */
+   void idle(void);
+
+   /*
+   * returns current state of kernel
+   * state can be either run mode or sleep mode
+   */
+   uint8_t state_kernel();
 
 #endif

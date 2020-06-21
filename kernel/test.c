@@ -1258,6 +1258,159 @@ test6(void)
 
 
 /*******************************************************************************
+ * Test 7
+ *
+ * Test de l'horloge (ARR et ACE)
+ * Tentative de determination de la frequence du processeur et de la
+ * periode de scheduling
+ ******************************************************************************/
+
+static int
+proc_timer1(void *arg)
+{
+	unsigned long quartz;
+	unsigned long ticks;
+	unsigned long dur;
+	int i;
+
+	(void) arg;
+
+	clock_settings(&quartz, &ticks);
+	dur = (quartz + ticks) / ticks;
+	printf(" 2");
+	for (i = 4; i < 8; i++) {
+		wait_clock(current_clock() + dur);
+		printf(" %d", i);
+	}
+	return 0;
+}
+
+static volatile unsigned long timer;
+
+static int
+proc_timer(void *arg)
+{
+	(void)arg;
+	while (1) {
+		unsigned long t = timer + 1;
+		timer = t;
+		while (timer == t) test_it();
+	}
+	while (1);
+	return 0;
+}
+
+static int
+sleep_pr1(void *args)
+{
+	(void)args;
+	wait_clock(current_clock() + 2);
+	printf(" not killed !!!");
+	assert(0);
+	return 1;
+}
+
+static void
+test7(void)
+{
+	int pid1, pid2, r;
+	unsigned long c0, c, quartz, ticks, dur;
+
+	assert(getprio(getpid()) == 128);
+	printf("1");
+	pid1 = start(proc_timer1, 4000, 129, "timer", 0);
+	assert(pid1 > 0);
+	printf(" 3");
+	assert(waitpid(-1, 0) == pid1);
+	printf(" 8 : ");
+
+	timer = 0;
+	pid1 = start(proc_timer, 4000, 127, "timer1", 0);
+	pid2 = start(proc_timer, 4000, 127, "timer2", 0);
+	assert(pid1 > 0);
+	assert(pid2 > 0);
+	clock_settings(&quartz, &ticks);
+	dur = 2 * quartz / ticks;
+	test_it();
+	c0 = current_clock();
+	do {
+		test_it();
+		c = current_clock();
+	} while (c == c0);
+	wait_clock(c + dur);
+	assert(kill(pid1) == 0);
+	assert(waitpid(pid1, 0) == pid1);
+	assert(kill(pid2) == 0);
+	assert(waitpid(pid2, 0) == pid2);
+	printf("%lu changements de contexte sur %lu tops d'horloge", timer, dur);
+	pid1 = start(sleep_pr1, 4000, 192, "sleep", 0);
+	assert(pid1 > 0);
+	assert(kill(pid1) == 0);
+	assert(waitpid(pid1, &r) == pid1);
+	assert(r == 0);
+	printf(".\n");
+}
+
+
+/*******************************************************************************
+ * Test 8
+ *
+ * Creation de processus se suicidant en boucle. Test de la vitesse de creation
+ * de processus.
+ ******************************************************************************/
+static int
+suicide(void *arg)
+{
+	(void)arg;
+	kill(getpid());
+	assert(0);
+	return 0;
+}
+
+static int
+suicide_launcher(void *arg)
+{
+	int pid1;
+	(void)arg;
+	pid1 = start(suicide, 4000, 192, "suicide_launcher", 0);
+	assert(pid1 > 0);
+	return pid1;
+}
+
+static void
+test8(void)
+{
+	unsigned long long tsc1;
+	unsigned long long tsc2;
+	int i, r, pid, count;
+
+	assert(getprio(getpid()) == 128);
+
+	/* Le petit-fils va passer zombie avant le fils mais ne pas
+	etre attendu par waitpid. Un nettoyage automatique doit etre
+	fait. */
+	pid = start(suicide_launcher, 4000, 129, "suicide_launcher", 0);
+	assert(pid > 0);
+	assert(waitpid(pid, &r) == pid);
+	assert(chprio(r, 192) < 0);
+
+	count = 0;
+	__asm__ __volatile__("rdtsc":"=A"(tsc1));
+	do {
+		for (i=0; i<10; i++) {
+			pid = start(suicide_launcher, 4000, 200, "suicide_launcher", 0);
+			assert(pid > 0);
+			assert(waitpid(pid, 0) == pid);
+		}
+		test_it();
+		count += i;
+		__asm__ __volatile__("rdtsc":"=A"(tsc2));
+	} while ((tsc2 - tsc1) < 1000000000);
+	printf("%lu cycles/process.\n", (unsigned long)div64(tsc2 - tsc1, 2 * count, 0));
+}
+
+
+/*******************************************************************************
  * Fin des tests
  ******************************************************************************/
 
@@ -1279,8 +1432,8 @@ static struct {
 	{"4", test4},
 	{"5", test5},
 	{"6", test6},
-	// {"7", test7},
-	// {"8", test8},
+	{"7", test7},
+	{"8", test8},
 	// {"9", test9},
 	// {"10", test10},
 	// {"11", test11},
