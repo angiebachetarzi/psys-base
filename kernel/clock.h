@@ -3,7 +3,7 @@
 
 #define CLOCKFREQ 100
 #define QUARTZ 0x1234DD
-#define SCHEDFREQ 50
+#define SCHEDFREQ 100
 
 void tic_PIT(void);
 
