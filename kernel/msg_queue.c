@@ -142,7 +142,6 @@ int psend(int fid, int msg_to_send) {
 
 int preceive(int fid, int * msg_to_receive) {
 
-//temp
     if (fid < 0
         || fid >= N_QUEUE
         || table_queue[fid] == NULL
@@ -223,7 +222,66 @@ int preceive(int fid, int * msg_to_receive) {
         mem_free(m, sizeof(msg));
 
     }
-    
+
     return 0;
+}
+
+int pcount (int fid, int * count) {
+
+    if (fid < 0
+        || fid >= N_QUEUE
+        || table_queue[fid] == NULL
+        || table_queue[fid] -> fid == -1) {
+
+        return -1;
+    }
+
+    if (count != NULL) {
+
+        int counter = 0;
+        process * tmp;
+        queue_for_each(tmp, &(table_queue[fid] -> waiting_process_link), process, waiting_msg_link) {
+            counter++;
+        }
+
+        //if global queue has no messages
+        if (table_queue[fid] -> nb_msg == 0) {
+            *count = -counter;
+        } else {
+            *count = table_queue[fid] -> nb_msg + counter;
+        }
+    }
+
+    return 0;
+}
+
+int preset (int fid) {
+
+    if (fid < 0
+        || fid >= N_QUEUE
+        || table_queue[fid] == NULL
+        || table_queue[fid] -> fid == -1) {
+
+        return -1;
+    }
+
+    //delete all messages
+    table_queue[fid] -> nb_msg = 0;
+    while(!queue_empty(&(table_queue[fid] -> msg_link))) {
+        msg * message = queue_out(&(table_queue[fid] -> msg_link), msg, msg_link);
+        mem_free(message, sizeof(msg));
+    }
+
+    //wake every process up
+    process * tmp;
+    while (!queue_empty(&(table_queue[fid] -> waiting_process_link))) {
+        tmp = queue_out(&(table_queue[fid] -> waiting_process_link), process, waiting_msg_link);
+        tmp -> fid_waiting = -1;
+        tmp -> state = STATE_READY;
+        queue_add(tmp, ready_process_list(), process, scheduling, priority);
+    }
+
+    return 0;
+    
 }
 

@@ -6,34 +6,30 @@
 
 extern int test_run(int n);
 
-int test3(void * arg){
-	printf("Watashi wa test3 desu. Soshite, whatashi no arg wa %d!\n",(int) arg);
-	return 5;
-}
-
-int test2(void * arg){
-	if((int) arg == 6){
-		printf("Watashi wa test2 desu\n");
-		start(test3,4096,130,"test3",(void *) 5);
-	}else{
-		printf("Moo ii yo\n");
-	}
-	return 666;
-}
-
 int tests(){
 	printf("TESTS\n");
+	printf("TEST 1\n");
 	test_run(1);
+	printf("TEST 2\n");
 	test_run(2);
+	printf("TEST 3\n");
 	test_run(3);
+	// printf("TEST 4\n");
 	// test_run(4);
+	printf("TEST 5\n");
 	test_run(5);
+	printf("TEST 6\n");
 	test_run(6);
+	// printf("TEST 7\n");
 	// test_run(7);
-	// test_run(8);
+	// printf("TEST 8\n");
+	// test_run(8); //not work
+	// printf("TEST 9\n");
+	// test_run(9); //not work
+	printf("TEST 10\n");
 	test_run(10);
-	// int pid = start(test2,4096,135,"test2",(void *) 6);
-	// printf("Test1 no PID wa %d \n",pid);
+	printf("TEST 11\n");
+	test_run(11);
 	while(1) {
 		hlt();
 	}
