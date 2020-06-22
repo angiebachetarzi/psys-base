@@ -22,14 +22,16 @@ int tests(){
 	test_run(6);
 	// printf("TEST 7\n");
 	// test_run(7);
-	// printf("TEST 8\n");
-	// test_run(8); //not work
-	// printf("TEST 9\n");
-	// test_run(9); //not work
+	printf("TEST 8\n");
+	test_run(8);
+	printf("TEST 9\n");
+	test_run(9);
 	printf("TEST 10\n");
 	test_run(10);
 	printf("TEST 11\n");
 	test_run(11);
+	// printf("TEST 12\n");
+	// test_run(12); //not work
 	while(1) {
 		hlt();
 	}

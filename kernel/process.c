@@ -355,7 +355,22 @@ int waitpid(int pid, int *retvalp) {
             queue_del(&(process_table.table_process[pid - 1]), nodes_children);
 
         }
+        queue_add(&(process_table.table_process[pid - 1]), &process_table.free_process, process, scheduling, priority);
+        
         return pid;
+    }
+
+    if(pid < 0){
+        process * iterator;
+        queue_for_each(iterator,&process_table.current_process->head_children,process,nodes_children){
+            if(iterator->state == STATE_ZOMBIE){
+                if(retvalp != NULL){
+                    *retvalp = process_table.table_process[ iterator->pid - 1].return_value;
+                }
+                return iterator->pid;
+            }
+        }
+
     }
     
     //update waitpid value
@@ -378,6 +393,7 @@ int waitpid(int pid, int *retvalp) {
             queue_del(&(process_table.table_process[current_wait_pid - 1]), nodes_children);
 
         }
+        queue_add(&(process_table.table_process[current_wait_pid - 1]), &process_table.free_process, process, scheduling, priority);
 
     return (process_table.current_process) -> wait_pid_val;
 }
