@@ -30,7 +30,8 @@ int tests(){
 	test_run(5);
 	test_run(6);
 	// test_run(7);
-	test_run(8);
+	// test_run(8);
+	test_run(10);
 	// int pid = start(test2,4096,135,"test2",(void *) 6);
 	// printf("Test1 no PID wa %d \n",pid);
 	while(1) {

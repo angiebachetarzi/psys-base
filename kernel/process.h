@@ -18,7 +18,8 @@
         STATE_CHILD_WAIT_BLOCK,
         STATE_SLEEP,
         STATE_ZOMBIE,
-        STATE_ASLEEP
+        STATE_ASLEEP,
+        STATE_WAIT_MESSAGE
     };
 
     enum kernel_states {
@@ -52,6 +53,9 @@
     * nodes_children: nodes of the list
     * NB: nodes_children is only here so i can use queue_for_each function
     * sleep_time: clock value to wait before waking up
+    * waiting_msg_link: list of waiting processes in msg queue
+    * fid_waiting: id of queue the process is waiting for
+    * msg_value: message from queue
     */
     typedef struct _process {
         uint32_t pid;
@@ -70,6 +74,9 @@
         link head_children;
         link nodes_children;
         uint32_t sleep_time;
+        link waiting_msg_link;
+        int32_t fid_waiting;
+        int32_t msg_value;
     } process;
 
     /*

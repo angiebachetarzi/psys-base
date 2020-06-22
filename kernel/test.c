@@ -127,12 +127,12 @@ void exit(int retval);
 int getpid(void);
 int getprio(int pid);
 int kill(int pid);
-// int pcount(int fid, int *count);
-// int pcreate(int count);
-// int pdelete(int fid);
-// int preceive(int fid,int *message);
-// int preset(int fid);
-// int psend(int fid, int message);
+int pcount(int fid, int *count);
+int pcreate(int count);
+int pdelete(int fid);
+int preceive(int fid,int *message);
+int preset(int fid);
+int psend(int fid, int message);
 void clock_settings(unsigned long *quartz, unsigned long *ticks);
 unsigned long current_clock(void);
 void wait_clock(unsigned long wakeup);
@@ -145,7 +145,7 @@ int waitpid(int pid, int *retval);
  */
 // void sys_info(void);
 
-/* static int
+static int
 strcmp(const char *str1, const char *str2)
 {
 	while (*str1 == *str2) {
@@ -155,7 +155,7 @@ strcmp(const char *str1, const char *str2)
 		str2++;
 	}
 	return *str1 - *str2;
-} */
+}
 
 static unsigned long
 strlen(const char *s)
@@ -831,7 +831,7 @@ div64(unsigned long long x, unsigned long long div, unsigned long long *rem)
 /*******************************************************************************
  * Pseudo random number generator
  ******************************************************************************/
-/* static unsigned long long mul64(unsigned long long x, unsigned long long y)
+static unsigned long long mul64(unsigned long long x, unsigned long long y)
 {
 	unsigned long a, b, c, d, e, f, g, h;
 	unsigned long long res = 0;
@@ -871,10 +871,10 @@ typedef unsigned long uint_fast32_t;
 static const uint_fast64_t _multiplier = 0x5DEECE66DULL;
 static const uint_fast64_t _addend = 0xB;
 static const uint_fast64_t _mask = (1ULL << 48) - 1;
-static uint_fast64_t _seed = 1; */
+static uint_fast64_t _seed = 1;
 
 // Assume that 1 <= _bits <= 32
-/* static uint_fast32_t
+static uint_fast32_t
 randBits(int _bits)
 {
 	uint_fast32_t rbits;
@@ -882,7 +882,7 @@ randBits(int _bits)
 	_seed = nextseed;
 	rbits = nextseed >> 16;
 	return rbits >> (32 - _bits);
-} */
+}
 
 /* static void
 setSeed(uint_fast64_t _s)
@@ -890,11 +890,11 @@ setSeed(uint_fast64_t _s)
 	_seed = _s;
 } */
 
-/* static unsigned long
+static unsigned long
 rand()
 {
 	return randBits(32);
-} */
+}
 
 /*******************************************************************************
  * Unmask interrupts for those who are working in kernel mode
@@ -1409,6 +1409,236 @@ test8(void)
 	printf("%lu cycles/process.\n", (unsigned long)div64(tsc2 - tsc1, 2 * count, 0));
 }
 
+/*******************************************************************************
+ * Test 9
+ *
+ * Test de la sauvegarde des registres dans les appels systeme et interruptions
+ ******************************************************************************/
+static int
+nothing(void *arg)
+{
+	(void)arg;
+	return 0;
+}
+
+int __err_id = 0;
+
+extern void
+__test_error(void)
+{
+	(void)nothing;
+	printf("assembly check failed, id = %d\n", __err_id);
+	exit(1);
+}
+
+__asm__(
+".text\n"
+".globl __test_valid_regs1\n"
+"__test_valid_regs1:\n"
+
+"pushl %ebp; movl %esp, %ebp; pushal\n"
+"movl 8(%ebp),%ebx\n"
+"movl 12(%ebp),%edi\n"
+"movl 16(%ebp),%esi\n"
+"movl %ebp,1f\n"
+"movl %esp,2f\n"
+
+"pushl $0\n"
+"pushl $3f\n"
+"pushl $192\n"
+"pushl $4000\n"
+"pushl $nothing\n"
+"call start\n"
+"addl $20,%esp\n"
+"movl $1,__err_id\n"
+"testl %eax,%eax\n"
+"jle 0f\n"
+"pushl %eax\n"
+"pushl $0\n"
+"pushl %eax\n"
+"call waitpid\n"
+"addl $8,%esp\n"
+"popl %ecx\n"
+"movl $3,__err_id\n"
+"cmpl %ecx,%eax\n"
+"jne 0f\n"
+
+"movl $4,__err_id\n"
+"cmpl %esp,2f\n"
+"jne 0f\n"
+"movl $5,__err_id\n"
+"cmpl %ebp,1f\n"
+"jne 0f\n"
+"movl $6,__err_id\n"
+"cmpl 8(%ebp),%ebx\n"
+"jne 0f\n"
+"movl $7,__err_id\n"
+"cmpl 12(%ebp),%edi\n"
+"jne 0f\n"
+"movl $8,__err_id\n"
+"cmpl 16(%ebp),%esi\n"
+"jne 0f\n"
+"popal; leave\n"
+"ret\n"
+"0: jmp __test_error\n"
+"0:\n"
+"jmp 0b\n"
+".previous\n"
+".data\n"
+"1: .long 0x12345678\n"
+"2: .long 0x87654321\n"
+"3: .string \"nothing\"\n"
+".previous\n"
+);
+
+extern void
+__test_valid_regs1(int a1, int a2, int a3);
+
+__asm__(
+".text\n"
+".globl __test_valid_regs2\n"
+"__test_valid_regs2:\n"
+
+"pushl %ebp; movl %esp, %ebp; pushal\n"
+
+"movl 8(%ebp),%eax\n"
+"movl 12(%ebp),%ebx\n"
+"movl 16(%ebp),%ecx\n"
+"movl 20(%ebp),%edx\n"
+"movl 24(%ebp),%edi\n"
+"movl 28(%ebp),%esi\n"
+"movl %ebp,1f\n"
+"movl %esp,2f\n"
+
+"movl $1,__err_id\n"
+"3: testl $1,__it_ok\n"
+"jnz 0f\n"
+
+"3: pushfl\n"
+"testl $0x200,(%esp)\n"
+"jnz 4f\n"
+"sti\n"
+"nop\n"
+"cli\n"
+"4:\n"
+"addl $4,%esp\n"
+"testl $1,__it_ok\n"
+"jz 3b\n"
+
+"movl $2,__err_id\n"
+"cmpl %esp,2f\n"
+"jne 0f\n"
+"movl $3,__err_id\n"
+"cmpl %ebp,1f\n"
+"jne 0f\n"
+"movl $4,__err_id\n"
+"cmpl 8(%ebp),%eax\n"
+"jne 0f\n"
+"movl $5,__err_id\n"
+"cmpl 12(%ebp),%ebx\n"
+"jne 0f\n"
+"movl $6,__err_id\n"
+"cmpl 16(%ebp),%ecx\n"
+"jne 0f\n"
+"movl $7,__err_id\n"
+"cmpl 20(%ebp),%edx\n"
+"jne 0f\n"
+"movl $8,__err_id\n"
+"cmpl 24(%ebp),%edi\n"
+"jne 0f\n"
+"movl $9,__err_id\n"
+"cmpl 28(%ebp),%esi\n"
+"jne 0f\n"
+"popal; leave\n"
+"ret\n"
+"0: jmp __test_error\n"
+"0:\n"
+"jmp 0b\n"
+".previous\n"
+".data\n"
+"1: .long 0x12345678\n"
+"2: .long 0x87654321\n"
+".previous\n"
+);
+
+static volatile int __it_ok;
+
+extern void
+__test_valid_regs2(int a1, int a2, int a3, int a4, int a5, int a6);
+
+static int
+test_regs2(void *arg)
+{
+	(void)arg;
+	__it_ok = 0;
+	__test_valid_regs2(rand(), rand(), rand(), rand(), rand(), rand());
+	return 0;
+}
+
+static void
+test9(void)
+{
+	int i;
+	assert(getprio(getpid()) == 128);
+	printf("1");
+	for (i=0; i<1000; i++) {
+		__test_valid_regs1(rand(), rand(), rand());
+	}
+	printf(" 2");
+	for (i=0; i<25; i++) {
+		int pid;
+		__it_ok = 1;
+		pid = start(test_regs2, 4000, 128, "test_regs2", 0);
+		assert(pid > 0);
+		while (__it_ok) test_it();
+		__it_ok = 1;
+		assert(waitpid(pid, 0) == pid);
+	}
+	printf(" 3.\n");
+}
+
+static void write(int fid, const char *buf, unsigned long len)
+{
+	unsigned long i;
+	for (i=0; i<len; i++) {
+		assert(psend(fid, buf[i]) == 0);
+	}
+}
+
+static void read(int fid, char *buf, unsigned long len)
+{
+	unsigned long i;
+	for (i=0; i<len; i++) {
+		int msg;
+		assert(preceive(fid, &msg) == 0);
+		buf[i] = msg;
+	}
+}
+
+/*******************************************************************************
+ * Test 10
+ *
+ * Test d'utilisation d'une file comme espace de stockage temporaire.
+ ******************************************************************************/
+static void
+test10(void)
+{
+	int fid;
+	char *str = "abcde";
+	unsigned long len = strlen(str);
+	char buf[10];
+
+	printf("1");
+	assert((fid = pcreate(5)) >= 0);
+	write(fid, str, len);
+	printf(" 2");
+	read(fid, buf, len);
+	buf[len] = 0;
+	assert(strcmp(str, buf) == 0);
+	assert(pdelete(fid) == 0);
+	printf(" 3.\n");
+}
+
 
 /*******************************************************************************
  * Fin des tests
@@ -1434,8 +1664,8 @@ static struct {
 	{"6", test6},
 	{"7", test7},
 	{"8", test8},
-	// {"9", test9},
-	// {"10", test10},
+	{"9", test9},
+	{"10", test10},
 	// {"11", test11},
 	// {"12", test12},
 	// {"13", test13},
