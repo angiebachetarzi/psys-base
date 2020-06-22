@@ -140,7 +140,7 @@ int psend(int fid, int msg_to_send) {
 
 }
 
-int preceive(int fid, int * msg) {
+int preceive(int fid, int * msg_to_receive) {
 
 //temp
     if (fid < 0
@@ -150,7 +150,80 @@ int preceive(int fid, int * msg) {
 
         return -1;
     }
-    *msg = 0;
+    
+    //if the queue is empty (no messages)
+    if (table_queue[fid] -> nb_msg == 0) {
+
+        //get current process
+        process * curr = current_process();
+        //add it to the list of waiting processes
+        queue_add(curr, &(table_queue[fid] -> waiting_process_link), process, waiting_msg_link, priority);
+        //update fid for process
+        curr -> fid_waiting = fid;
+        //move on to next process
+        next_process(STATE_WAIT_MESSAGE);
+
+        if (curr -> fid_waiting == -1) {
+
+            return -1;
+
+        } else {
+
+            if (msg_to_receive != NULL) {
+                //update message
+                *msg_to_receive = curr -> msg_value;
+            }
+
+        }
+        
+    }
+    //if there is still a process waiting
+    else if (!queue_empty(&(table_queue[fid] -> waiting_process_link))) {
+
+        //get message from the list
+        msg * m = queue_out(&(table_queue[fid] -> msg_link), msg, msg_link);
+        //update value
+        if (msg_to_receive != NULL) {
+            *msg_to_receive = m -> value;
+        }
+
+        //get next waiting process
+        process * p_wait = queue_out(&(table_queue[fid] -> waiting_process_link), process, waiting_msg_link);
+        //add it to the ready list
+        p_wait -> state = STATE_READY;
+        queue_add(p_wait, ready_process_list(), process, scheduling, priority);
+
+        //create new message
+        msg * m2 = mem_alloc(sizeof(msg));
+        if (m2 == NULL) {
+            return -1;
+        }
+        m2 -> value = p_wait -> msg_value;
+        m2 -> priority = 1;
+        link m_link = {NULL, NULL};
+        m2 -> msg_link = m_link;
+
+        //add msg to the global queue
+        queue_add(m2, &(table_queue[fid] -> msg_link), msg, msg_link, priority);
+        next_process(STATE_WAIT_MESSAGE);
+    }
+    //queue full
+    else {
+        //get last msg from queue
+        msg * m = queue_out(&(table_queue[fid] -> msg_link), msg, msg_link);
+
+        //update msg value
+        if (msg_to_receive != NULL) {
+            *msg_to_receive = m -> value;
+        }
+
+        //update number of messages of global queue
+        table_queue[fid] -> nb_msg--;
+        //free message
+        mem_free(m, sizeof(msg));
+
+    }
+    
     return 0;
 }
 
