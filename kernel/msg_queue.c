@@ -72,6 +72,9 @@ int pdelete(int fid) {
         tmp -> fid_waiting = -1;
     }
 
+    //move on to next process
+    next_process(STATE_READY);
+
     return 0;
 }
 
@@ -285,6 +288,9 @@ int preset (int fid) {
         queue_add(tmp, ready_process_list(), process, scheduling, priority);
     }
 
+    //move on to next process
+    next_process(STATE_READY);
+    
     return 0;
     
 }

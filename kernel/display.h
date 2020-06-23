@@ -69,6 +69,11 @@
         */
         void set_cursor(uint32_t x, uint32_t y);
 
+        //used for tests
+        void cons_write(const char *str, unsigned long size);
+        void cons_echo(int on);
+        int cons_read(void);
+
         enum display_color {
             COLOR_BLACK,
             COLOR_BLUE,

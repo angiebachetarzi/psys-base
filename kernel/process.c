@@ -69,24 +69,28 @@ void next_process(uint8_t curr_state) {
     //get first available process
     process * next_proc = queue_top(&process_table.ready_process, process, scheduling);
 
-    //if process is null, that means the kernel is in sleep mode
-    //get next process and do nothing (idle)
-    while (next_proc == NULL) {
-        process_table.kernel_state = STATE_KERNEL_SLEEPING;
-        next_proc = queue_top(&process_table.ready_process, process, scheduling);
-        idle();
-    }
+    if (next_proc != NULL || curr_state != STATE_READY) {
 
-    //if we find a not null process, that means the kernel is in run mode
-    process_table.kernel_state = STATE_KERNEL_RUNNING;
+        //if process is null, that means the kernel is in sleep mode
+        //get next process and do nothing (idle)
+        while (next_proc == NULL) {
+            process_table.kernel_state = STATE_KERNEL_SLEEPING;
+            next_proc = queue_top(&process_table.ready_process, process, scheduling);
+            idle();
+        }
 
-    //if the priority of the available process is higher than the current one
-    //switch processes
-    if (next_proc -> priority >= (process_table.current_process) -> priority
-        || curr_state != STATE_READY) {
-            
-            next_proc = queue_out(&process_table.ready_process, process, scheduling);
-            switch_proc(next_proc, curr_state);
+        //if we find a not null process, that means the kernel is in run mode
+        process_table.kernel_state = STATE_KERNEL_RUNNING;
+
+        //if the priority of the available process is higher than the current one
+        //switch processes
+        if (next_proc -> priority >= (process_table.current_process) -> priority
+            || curr_state != STATE_READY) {
+                
+                next_proc = queue_out(&process_table.ready_process, process, scheduling);
+                switch_proc(next_proc, curr_state);
+        }
+
     }
 }
 
@@ -482,8 +486,10 @@ int kill(int pid) {
     to_kill -> return_value = 0;
 
     //actually kill process
-    //but only if he was available or sleeping
-    if (to_kill -> state == STATE_ASLEEP || to_kill -> state == STATE_READY) {
+    //but only if he was available, sleeping or waiting for message
+    if (to_kill -> state == STATE_ASLEEP 
+    || to_kill -> state == STATE_READY
+    || to_kill -> state == STATE_WAIT_MESSAGE) {
         queue_del(to_kill, scheduling);
     }
     

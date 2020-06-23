@@ -15,6 +15,9 @@ uint32_t ind_x = 0;
 //line cursor
 uint32_t ind_y = 0;
 
+//display (used for tests)
+uint32_t terminal_echo = 1;
+
 void set_cursor(uint32_t x, uint32_t y){
     uint16_t pos = y + x * MAX_C;
 
@@ -74,33 +77,34 @@ void switch_car(char c){
                 break;
         }
     }
-        if (ind_y == MAX_C - 1) {
+    if (ind_y == MAX_C - 1) {
 
-            ind_y = 0;
+        ind_y = 0;
 
-            if (ind_x == MAX_L - 1) {
+        if (ind_x == MAX_L - 1) {
 
             scroll();
 
-            } else {
-
-            ind_x++;
-
-            }
         } else {
 
-            ind_y++;
-
+            ind_x++;
         }
 
-        set_cursor(ind_x,ind_y);
+    } else {
+
+        ind_y++;
+
+    }
+
+    set_cursor(ind_x,ind_y);
 }
 
 void scroll(void) {
 
-    memmove(ptr_mem(0, 0), ptr_mem(1, 0), 2 * (MAX_C * (MAX_L - 1)));
+    memmove(ptr_mem(0, 0), ptr_mem(1, 0), 2 * MAX_C * MAX_L);
+    
     for(uint32_t i = 0; i < MAX_C; i++) {
-        write_car((MAX_L - 1), i, 32, txt_color, color_bg);
+        write_car(ind_x, i, ' ', txt_color, color_bg);
     }
 }
 
@@ -111,6 +115,7 @@ void clear_screen() {
             write_car(x, y, ' ', txt_color, color_bg);
         }
     }
+    set_cursor(0,0);
 
 }
 
@@ -126,6 +131,19 @@ void display_timer(char *str, int32_t size) {
   for (int32_t i = 0; i < size; i++) {
       write_car(0,MAX_C-size+i,*(str + i),txt_color,color_bg);
     }
+}
+
+void cons_write(const char *str, unsigned long size){
+    console_putbytes(str,size);
+}
+
+void cons_echo(int on){
+    terminal_echo = on;
+}
+
+int cons_read(void) {
+    //temp
+    return 0;
 }
 
 
