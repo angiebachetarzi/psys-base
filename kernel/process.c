@@ -165,12 +165,20 @@ void exit(int retval) {
             //update waitpid value of the parent with pid of child
             ((process_table.current_process) -> parent) -> wait_pid_val = (process_table.current_process) -> pid;
 
-        }
+            //change state of parent to ready
+            ((process_table.current_process) -> parent) -> state = STATE_READY;
+            //add parent to the ready queue
+            queue_add((process_table.current_process) -> parent, &process_table.ready_process, process, scheduling, priority);
 
-        //change state of parent to ready
-        ((process_table.current_process) -> parent) -> state = STATE_READY;
-        //add parent to the ready queue
-        queue_add((process_table.current_process) -> parent, &process_table.ready_process, process, scheduling, priority);
+        }
+        else if ((process_table.current_process) -> pid == (uint32_t) ((process_table.current_process) -> parent) -> wait_pid_val) {
+
+             //change state of parent to ready
+            ((process_table.current_process) -> parent) -> state = STATE_READY;
+            //add parent to the ready queue
+            queue_add((process_table.current_process) -> parent, &process_table.ready_process, process, scheduling, priority);
+
+        }
     }
 
     //taking care of children
@@ -373,7 +381,7 @@ int waitpid(int pid, int *retvalp) {
         
         return pid;
 
-    } else {
+    } else if (pid < 0) {
         process * tmp;
 
         queue_for_each(tmp, &(process_table.current_process) -> head_children, process, nodes_children){
