@@ -30,8 +30,18 @@ int tests(){
 	test_run(10);
 	printf("TEST 11\n");
 	test_run(11);
-	// printf("TEST 12\n");
-	// test_run(12); //not work
+	printf("TEST 12\n");
+	test_run(12);
+	// printf("TEST 13\n");
+	// test_run(13); //not work
+	// printf("TEST 14\n");
+	// test_run(14); //not work
+	// printf("TEST 15\n");
+	// test_run(15); //not work
+	// printf("TEST 16\n");
+	// test_run(16); //not work
+	// printf("TEST 17\n");
+	// test_run(17); //not work
 	while(1) {
 		hlt();
 	}

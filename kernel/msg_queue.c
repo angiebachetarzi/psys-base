@@ -66,7 +66,7 @@ int pdelete(int fid) {
     //add all processes of queue to ready list
     process * tmp;
     while (!queue_empty(&(table_queue[fid] -> waiting_process_link))) {
-        tmp = queue_out(&(table_queue[fid] -> waiting_process_link), process, waiting_msg_link);
+        tmp = queue_out(&(table_queue[fid] -> waiting_process_link), process, scheduling);
         tmp -> state = STATE_READY;
         queue_add(tmp, ready_process_list(), process, scheduling, priority);
         tmp -> fid_waiting = -1;
@@ -95,7 +95,7 @@ int psend(int fid, int msg_to_send) {
         curr -> msg_value = msg_to_send;
 
         //add process to the waiting list
-        queue_add(curr, &(table_queue[fid] -> waiting_process_link), process, waiting_msg_link, priority);
+        queue_add(curr, &(table_queue[fid] -> waiting_process_link), process, scheduling, priority);
 
         //update fid for process
         curr -> fid_waiting = fid;
@@ -110,7 +110,7 @@ int psend(int fid, int msg_to_send) {
     //if th waiting process list is not empty 
     else if (!queue_empty(&(table_queue[fid] -> waiting_process_link))) {
         //wake up the oldest process
-        process * old = queue_out(&(table_queue[fid] -> waiting_process_link), process, waiting_msg_link);
+        process * old = queue_out(&(table_queue[fid] -> waiting_process_link), process, scheduling);
         //give him the message
         old -> msg_value = msg_to_send;
         //add him to the ready list
@@ -156,22 +156,23 @@ int preceive(int fid, int * msg_to_receive) {
         //get current process
         process * curr = current_process();
         //add it to the list of waiting processes
-        queue_add(curr, &(table_queue[fid] -> waiting_process_link), process, waiting_msg_link, priority);
+        queue_add(curr, &(table_queue[fid] -> waiting_process_link), process, scheduling, priority);
         //update fid for process
         curr -> fid_waiting = fid;
         //move on to next process
         next_process(STATE_WAIT_MESSAGE);
 
-        if (curr -> fid_waiting == -1) {
-
-            return -1;
-
-        } else {
+        if (curr -> fid_waiting != -1) {
 
             if (msg_to_receive != NULL) {
                 //update message
                 *msg_to_receive = curr -> msg_value;
             }
+            curr -> fid_waiting = -1;
+
+        } else {
+
+            return -1;
 
         }
         
@@ -182,15 +183,12 @@ int preceive(int fid, int * msg_to_receive) {
         //get message from the list
         msg * m = queue_out(&(table_queue[fid] -> msg_link), msg, msg_link);
         //update value
-        if (msg_to_receive != NULL) {
+        if (m != NULL) {
             *msg_to_receive = m -> value;
         }
 
         //get next waiting process
-        process * p_wait = queue_out(&(table_queue[fid] -> waiting_process_link), process, waiting_msg_link);
-        //add it to the ready list
-        p_wait -> state = STATE_READY;
-        queue_add(p_wait, ready_process_list(), process, scheduling, priority);
+        process * p_wait = queue_out(&(table_queue[fid] -> waiting_process_link), process, scheduling);
 
         //create new message
         msg * m2 = mem_alloc(sizeof(msg));
@@ -202,9 +200,13 @@ int preceive(int fid, int * msg_to_receive) {
         link m_link = {NULL, NULL};
         m2 -> msg_link = m_link;
 
+        //add it to the ready list
+        p_wait -> state = STATE_READY;
+        queue_add(p_wait, ready_process_list(), process, scheduling, priority);
+
         //add msg to the global queue
         queue_add(m2, &(table_queue[fid] -> msg_link), msg, msg_link, priority);
-        next_process(STATE_WAIT_MESSAGE);
+        next_process(STATE_READY);
     }
     //queue full
     else {
@@ -240,7 +242,7 @@ int pcount (int fid, int * count) {
 
         int counter = 0;
         process * tmp;
-        queue_for_each(tmp, &(table_queue[fid] -> waiting_process_link), process, waiting_msg_link) {
+        queue_for_each(tmp, &(table_queue[fid] -> waiting_process_link), process, scheduling) {
             counter++;
         }
 
@@ -275,7 +277,7 @@ int preset (int fid) {
     //wake every process up
     process * tmp;
     while (!queue_empty(&(table_queue[fid] -> waiting_process_link))) {
-        tmp = queue_out(&(table_queue[fid] -> waiting_process_link), process, waiting_msg_link);
+        tmp = queue_out(&(table_queue[fid] -> waiting_process_link), process, scheduling);
         tmp -> fid_waiting = -1;
         tmp -> state = STATE_READY;
         queue_add(tmp, ready_process_list(), process, scheduling, priority);
