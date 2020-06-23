@@ -99,6 +99,7 @@ int psend(int fid, int msg_to_send) {
 
         //update fid for process
         curr -> fid_waiting = fid;
+        curr -> waiting_msg_link = &(table_queue[fid] -> waiting_process_link);
 
         //move on to next process
         next_process(STATE_WAIT_MESSAGE);
@@ -159,6 +160,7 @@ int preceive(int fid, int * msg_to_receive) {
         queue_add(curr, &(table_queue[fid] -> waiting_process_link), process, scheduling, priority);
         //update fid for process
         curr -> fid_waiting = fid;
+        curr -> waiting_msg_link = &(table_queue[fid] -> waiting_process_link);
         //move on to next process
         next_process(STATE_WAIT_MESSAGE);
 

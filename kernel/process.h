@@ -74,7 +74,7 @@
         link head_children;
         link nodes_children;
         uint32_t sleep_time;
-        link waiting_msg_link;
+        link * waiting_msg_link;
         int32_t fid_waiting;
         int32_t msg_value;
     } process;

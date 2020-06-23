@@ -32,8 +32,8 @@ int tests(){
 	test_run(11);
 	printf("TEST 12\n");
 	test_run(12);
-	// printf("TEST 13\n");
-	// test_run(13); //not work
+	printf("TEST 13\n");
+	test_run(13);
 	// printf("TEST 14\n");
 	// test_run(14); //not work
 	// printf("TEST 15\n");

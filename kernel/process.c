@@ -2,6 +2,7 @@
 #include "queue.h"
 #include "mem.h"
 #include "debug.h"
+#include "msg_queue.h"
 
 extern void exit_proc();
 
@@ -308,6 +309,15 @@ int chprio(int pid, int newprio) {
     //update prio
     (process_table.table_process[pid - 1]).priority = newprio;
 
+    //case where the process is in STATE WAITING MESSAGE block
+    //add it to the waiting msg list
+    if ((process_table.table_process[pid - 1]).state == STATE_WAIT_MESSAGE) {
+
+        queue_del(&(process_table.table_process[pid - 1]), scheduling);
+        queue_add(&(process_table.table_process[pid - 1]), (process_table.table_process[pid - 1]).waiting_msg_link, process, scheduling, priority);
+
+    }
+
     //if pid is of current process and we have at least one process available
     //switch processes
     if ((process_table.table_process[pid - 1]).pid == (process_table.current_process) -> pid
@@ -358,19 +368,30 @@ int waitpid(int pid, int *retvalp) {
         queue_add(&(process_table.table_process[pid - 1]), &process_table.free_process, process, scheduling, priority);
         
         return pid;
-    }
 
-    if(pid < 0){
-        process * iterator;
-        queue_for_each(iterator,&process_table.current_process->head_children,process,nodes_children){
-            if(iterator->state == STATE_ZOMBIE){
+    } else {
+        process * tmp;
+
+        queue_for_each(tmp, &(process_table.current_process) -> head_children, process, nodes_children){
+
+            if(tmp -> state == STATE_ZOMBIE){
                 if(retvalp != NULL){
-                    *retvalp = process_table.table_process[ iterator->pid - 1].return_value;
+
+                    *retvalp = (process_table.table_process[ tmp->pid - 1]).return_value;
+
                 }
-                return iterator->pid;
+                //free the stack of the process
+                if (tmp -> stack != NULL) {
+
+                    mem_free(tmp -> stack, tmp -> size + 4096);
+                    queue_del(tmp, nodes_children);
+
+                }
+                queue_add(tmp, &process_table.free_process, process, scheduling, priority);
+
+                return tmp -> pid;
             }
         }
-
     }
     
     //update waitpid value
