@@ -1,26 +1,32 @@
-#include "debugger.h"
 #include "cpu.h"
+#include "display.h"
+#include "process.h"
+#include "stdio.h"
+#include "clock.h"
 
-int fact(int n)
-{
-	if (n < 2)
-		return 1;
+extern int test_run(int n);
 
-	return n * fact(n-1);
+int tests(){
+	printf("TESTS\n");
+	for(int i = 1; i <=20; i ++) {
+		test_run(i);
+	}
+	while(1) {
+		hlt();
+	}
+	return 0;
 }
-
 
 void kernel_start(void)
 {
-	int i;
-	// call_debugger(); useless with qemu -s -S
+	
+	set_freq();
+	init_traitant_IT(traitant_IT_32, 32);
+	demasq_irq(0);
 
-	i = 10;
-
-	i = fact(i);
-
-	while(1)
-	  hlt();
-
-	return;
+	init_display();
+	
+	start(tests, 4096, 128, "tests", NULL);
 }
+
+

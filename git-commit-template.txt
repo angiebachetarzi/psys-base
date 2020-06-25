@@ -1,0 +1,4 @@
+<"sujet: bref résumé" (60 cars max) ici !>
+
+<La description de votre commit ici sur plusieurs lignes
+ si vous le souhaitez (80 cars par ligne max)!>
