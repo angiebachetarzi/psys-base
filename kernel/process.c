@@ -97,7 +97,7 @@ void next_process(uint8_t curr_state) {
 
 int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name, void *arg) {
 
-    if (ssize > INT32_MAX
+    if (ssize > 8096
         || prio < 1
         || prio > MAX_PRIORITY) {
 
@@ -110,40 +110,41 @@ int start(int (*pt_func)(void*), unsigned long ssize, int prio, const char *name
     if ((process_table.table_process[0]).pid == 1) {
 
         process * new_proc = queue_out(&process_table.free_process, process, scheduling);
+        
+        if (new_proc != NULL) {
+            new_proc -> name = name;
+            new_proc -> size = ssize;
+            new_proc -> pt_func = pt_func;
+            new_proc -> priority = prio;
+            new_proc -> arg = arg;
+            new_proc -> parent = process_table.current_process;
+            INIT_LIST_HEAD(&new_proc -> head_children);
+            //add new process to children list of parent
+            queue_add(new_proc, &(new_proc -> parent) -> head_children, process, nodes_children, priority);
 
-        new_proc -> name = name;
-        new_proc -> size = ssize;
-        new_proc -> pt_func = pt_func;
-        new_proc -> priority = prio;
-        new_proc -> arg = arg;
-        new_proc -> parent = process_table.current_process;
-        INIT_LIST_HEAD(&new_proc -> head_children);
-        //add new process to children list of parent
-        queue_add(new_proc, &(new_proc -> parent) -> head_children, process, nodes_children, priority);
+            //new process list for the child
+            new_proc -> stack = mem_alloc(ssize + 4096);
+            uint32_t size = (ssize + 4096) / sizeof(uint32_t);
+                    
+            new_proc -> context.esp = (uint32_t) &new_proc -> stack[size - 3];
 
-        //new process list for the child
-        new_proc -> stack = mem_alloc(ssize + 4096);
-        uint32_t size = (ssize + 4096) / sizeof(uint32_t);
-                
-        new_proc -> context.esp = (uint32_t) &new_proc -> stack[size - 3];
+            new_proc -> stack[size - 1] = (uint32_t) arg;
+            new_proc -> stack[size - 2] = (uint32_t) exit_proc;
+            new_proc -> stack[size - 3] = (uint32_t) pt_func;
 
-        new_proc -> stack[size - 1] = (uint32_t) arg;
-        new_proc -> stack[size - 2] = (uint32_t) exit_proc;
-        new_proc -> stack[size - 3] = (uint32_t) pt_func;
+            //if the parent process has a lesser priority than it's child
+            if (process_table.current_process -> priority < new_proc -> priority) {
 
-        //if the parent process has a lesser priority than it's child
-        if (process_table.current_process -> priority < new_proc -> priority) {
+                switch_proc(new_proc, STATE_READY);
 
-            switch_proc(new_proc, STATE_READY);
+            } else {
 
-        } else {
+                new_proc -> state = STATE_READY;
+                queue_add(new_proc,&process_table.ready_process,process,scheduling,priority);
 
-            new_proc -> state = STATE_READY;
-            queue_add(new_proc,&process_table.ready_process,process,scheduling,priority);
-
+            }
+            return new_proc -> pid;
         }
-        return new_proc -> pid;
-
     } else {
         return first_process(pt_func, ssize, name);
     }

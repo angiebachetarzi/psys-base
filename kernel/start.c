@@ -8,15 +8,15 @@ extern int test_run(int n);
 
 int tests(){
 	printf("TESTS\n");
-	test_run(1);
-	test_run(2);
-	test_run(3);
-	test_run(4);
-	test_run(5);
-	test_run(6);
-	test_run(7);
-	test_run(8);
-	test_run(9);
+	// test_run(1);
+	// test_run(2);
+	// test_run(3);
+	// test_run(4);
+	// test_run(5);
+	// test_run(6);
+	// test_run(7);
+	// test_run(8);
+	// test_run(9);
 	test_run(10);
 	test_run(11);
 	test_run(12);
@@ -24,8 +24,7 @@ int tests(){
 	test_run(14);
 	test_run(15);
 	test_run(16);
-	printf("TEST 17\n");
-	test_run(17); //not work
+	test_run(17);
 	while(1) {
 		hlt();
 	}

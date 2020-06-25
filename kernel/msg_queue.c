@@ -12,7 +12,7 @@ int32_t available_queue() {
 int pcreate(int count) {
 
     //check that count is valid
-    if (count <= 0 || count > INT32_MAX / 2) {
+    if (count <= 0 || count > 65536) {
         return -1;
     }
 
@@ -53,6 +53,15 @@ int pdelete(int fid) {
         return -1;
     }
 
+    //add all processes of queue to ready list
+    process * tmp;
+    while (!queue_empty(&(table_queue[fid] -> waiting_process_link))) {
+        tmp = queue_out(&(table_queue[fid] -> waiting_process_link), process, scheduling);
+        tmp -> state = STATE_READY;
+        queue_add(tmp, ready_process_list(), process, scheduling, priority);
+        tmp -> fid_waiting = -1;
+    }
+
     //delete all messages of queue
     table_queue[fid] -> nb_msg = 0;
     while(!queue_empty(&(table_queue[fid] -> msg_link))) {
@@ -62,15 +71,6 @@ int pdelete(int fid) {
 
     //update global queue
     table_queue[fid] -> fid = -1;
-
-    //add all processes of queue to ready list
-    process * tmp;
-    while (!queue_empty(&(table_queue[fid] -> waiting_process_link))) {
-        tmp = queue_out(&(table_queue[fid] -> waiting_process_link), process, scheduling);
-        tmp -> state = STATE_READY;
-        queue_add(tmp, ready_process_list(), process, scheduling, priority);
-        tmp -> fid_waiting = -1;
-    }
 
     //move on to next process
     next_process(STATE_READY);

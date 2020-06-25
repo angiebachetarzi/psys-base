@@ -6,7 +6,7 @@
     #include "stdint.h"
     #include "mem.h"
 
-    #define N_QUEUE 128
+    #define N_QUEUE 32
 
     /*
     * Structure of a message queue
