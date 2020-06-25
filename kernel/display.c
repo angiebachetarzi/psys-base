@@ -1,13 +1,16 @@
 #include "display.h"
 #include "string.h"
 #include "cpu.h"
+#include "kbd.h"
+#include "process.h"
+#include "queue.h"
 
 
 //background color
-uint8_t color_bg = COLOR_BLACK;
+uint8_t color_bg = COLOR_WHITE;
 
 //text color
-uint8_t txt_color = COLOR_WHITE;
+uint8_t txt_color = COLOR_RED;
 
 //column cursor
 uint32_t ind_x = 0;
@@ -40,63 +43,69 @@ void write_car(uint32_t x, uint32_t y, char c, uint32_t txt, uint32_t bg){
     *adr = value;
 }
 
+int check_scroll(char c) {
+    return (ind_x >= (MAX_L - 1) && (ind_y >= (MAX_C - 1) || c == 10));
+}
+
 
 void switch_car(char c){
-    uint32_t car = (uint32_t) c;
-    if (car >= 32 && car <= 126) {
-        write_car(ind_x,ind_y,c,txt_color,color_bg);
-    } else {
-        switch (c) {
-            case '\b':
-                if (ind_y != 0) {
-
-                ind_y--;
-                
+    if(((c >= 0) && (c <= 31)) || (c == 127)){
+        switch(c){
+            case 8:
+                if (ind_y > 0)
+                {
+                    set_cursor(ind_x, (ind_y - 1));
                 }
                 break;
-            case '\t':
-                if (ind_y < 72) {
-
-                ind_y += 8 - ind_y % 8;
-
+            case 9:
+                while(1){
+                    set_cursor(ind_x, (ind_y + 1));
+                    if (ind_y == 0) {
+                        if (check_scroll(c))
+                        {
+                            scroll();
+                            set_cursor(ind_x, ind_y);
+                        }
+                        set_cursor((ind_x + 1), ind_y);
+                        break;
+                    } else if ((ind_y % 8) == 0) {
+                        break;
+                    }
+                }
+                break;
+            case 10:
+                if (check_scroll(c)){
+                    scroll();
+                    set_cursor(ind_x, 0);
                 } else {
-
-                ind_y = 79;
-
+                    set_cursor((ind_x + 1), 0);
                 }
                 break;
-            case '\n':
-                ind_y = 0;
-                ind_x++;
+            case 12:
+                clear_screen(txt_color, color_bg);
                 break;
-            case '\f':
-                clear_screen(COLOR_WHITE, COLOR_BLACK);
+            case 13:
+                set_cursor(ind_x, 0);
                 break;
-            case '\r':
-                ind_y = 0;
+            default:
                 break;
         }
     }
-    if (ind_y == MAX_C - 1) {
-
-        ind_y = 0;
-
-        if (ind_x == MAX_L - 1) {
-
-            scroll();
-
-        } else {
-
-            ind_x++;
+    else{
+        write_car(ind_x, ind_y, c, txt_color, color_bg);
+        if(ind_y < (MAX_C - 1)){
+            set_cursor(ind_x, (ind_y + 1));
         }
-
-    } else {
-
-        ind_y++;
-
+        else if(ind_x < (MAX_L - 1)){
+            set_cursor((ind_x + 1), 0);
+        }
+        else{
+            if (check_scroll(c)) {
+                scroll();
+            }
+            set_cursor((ind_x), 0);
+        }
     }
-
-    set_cursor(ind_x,ind_y);
 }
 
 void scroll(void) {
@@ -127,12 +136,6 @@ void console_putbytes(const char *str, int32_t size){
 
 }
 
-void display_timer(char *str, int32_t size) {
-  for (int32_t i = 0; i < size; i++) {
-      write_car(0,MAX_C-size+i,*(str + i),txt_color,color_bg);
-    }
-}
-
 void cons_write(const char *str, unsigned long size){
     console_putbytes(str,size);
 }
@@ -142,8 +145,28 @@ void cons_echo(int on){
 }
 
 int cons_read(void) {
-    //temp
     return 0;
+}
+
+void init_display() {
+
+    printf("\f");
+    printf("...............................................................................\n");
+    printf("    .S_SSSs    S.       .S_SSSs     .S   .S_sSSs      sSSs_sSSs      sSSs  \n");
+    printf("   .SS~SSSSS   SS.     .SS~SSSSS   .SS  .SS~YSSbb    ddSSP~YSSbb    ddSSP  \n");
+    printf("   SSS   SSSS  SSS     SSS   SSSS  SSS  SSS   `Sbb  dSS'     `Sbb  dSS'    \n");
+    printf("   SSS    SSS  SSS     SSS    SSS  SSS  SSS    SSS  SSS       SSS  SS|     \n");
+    printf("   SSS SSSSSS  S&S     SSS SSSSPP  S&S  SSS    S&S  S&S       S&S  S&S     \n");
+    printf("   S&S  SSSSS  S&S     S&S  SSSY   S&S  S&S    S&S  S&S       S&S  Y&Ss    \n");
+    printf("   S&S    S&S  S&S     S&S    S&S  S&S  S&S    S&S  S&S       S&S  `S&&S   \n");
+    printf("   S&S    S&S  S&S     S&S    S&S  S&S  S&S    S&S  S&S       S&S    `S*S  \n");
+    printf("   S*S    S&S  S*b     S*S    S&S  S*S  S*S    S*S  S*b       d*S     l*S  \n");
+    printf("   S*S    S*S  S*S.    S*S    S*S  S*S  S*S    S*S  S*S.     .S*S    .S*P  \n");
+    printf("   S*S    S*S   SSSbs  S*S SSSSP   S*S  S*S    S*S   SSSbs_sdSSS   sSS*S   \n");
+    printf("   SSS    S*S    YSSP  S*S  SSY    S*S  S*S    SSS    YSSP~YSSY    YSS'    \n");
+    printf("          SP           SP          SP   SP                                 \n");
+    printf("          Y            Y           Y    Y                                  \n");
+    printf("...............................................................................\n\n");
 }
 
 

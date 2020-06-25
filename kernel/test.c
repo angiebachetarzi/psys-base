@@ -142,7 +142,7 @@ int waitpid(int pid, int *retval);
  * Pour la soutenance, devrait afficher la liste des processus actifs, des
  * files de messages utilisees et toute autre info utile sur le noyau.
  */
-void sys_info(void);
+// void sys_info(void);
 
 static int
 strcmp(const char *str1, const char *str2)
@@ -2247,6 +2247,7 @@ test17(void)
 		}
 		test_it();
 	}
+
 	for (i=0; i<n; i++) {
 		assert(kill(ids[i]) == 0);
 		assert(waitpid(ids[i], 0) == ids[i]);

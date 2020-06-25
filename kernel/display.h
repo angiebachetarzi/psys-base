@@ -7,6 +7,11 @@
         #include "stdint.h"
         #define DISPLAY_ADR 0xB8000
 
+        /**
+         * init display and print logo
+         */
+        void init_display();
+
         /*
         * clear_screen : function to clear the console screen
         */
